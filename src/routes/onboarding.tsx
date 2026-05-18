@@ -47,6 +47,14 @@ function Onboarding() {
       } catch {}
     }
     checkExistingProfile();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
+        checkExistingProfile();
+      }
+    });
+
+    return () => { subscription.unsubscribe(); };
   }, [nav]);
 
   const handleSavePhone = async (e: React.FormEvent) => {

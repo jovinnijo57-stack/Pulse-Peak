@@ -89,15 +89,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function loadData() {
       try {
-        // Listen for Supabase OAuth login events
-        supabase.auth.onAuthStateChange((event, session) => {
-          if (event === "SIGNED_IN" && session?.user) {
-            loadData();
-          } else if (event === "SIGNED_OUT") {
-            setState(defaultState);
-          }
-        });
-
         let loaded = { ...defaultState };
         const { data: authData } = await supabase.auth.getUser();
         const userId = authData?.user?.id || null;
@@ -169,6 +160,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setReady(true);
     }
     loadData();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
+        loadData();
+      } else if (event === "SIGNED_OUT") {
+        setState(defaultState);
+      }
+    });
+
+    return () => { subscription.unsubscribe(); };
   }, []);
 
   useEffect(() => {
