@@ -112,16 +112,20 @@ Provide a JSON response with exactly this structure:
     try {
       const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
       const groqKey = import.meta.env.VITE_GROQ_API_KEY;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
 
       if (geminiKey) {
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: { responseMimeType: "application/json" }
           })
         });
+        clearTimeout(timeoutId);
         const json = await res.json();
         const text = json.candidates[0].content.parts[0].text;
         aiPlan = JSON.parse(text);
@@ -129,12 +133,14 @@ Provide a JSON response with exactly this structure:
         const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
           headers: { "Authorization": `Bearer ${groqKey}`, "Content-Type": "application/json" },
+          signal: controller.signal,
           body: JSON.stringify({
             model: "llama-3.3-70b-versatile",
             messages: [{ role: "user", content: prompt }],
             response_format: { type: "json_object" }
           })
         });
+        clearTimeout(timeoutId);
         const json = await res.json();
         aiPlan = JSON.parse(json.choices[0].message.content);
       }
