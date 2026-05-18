@@ -40,8 +40,8 @@ function Login() {
         return;
       }
       if (data?.user) {
-        const { data: profile } = await supabase.from("profiles").select("calorie_goal").eq("id", data.user.id).single();
-        if (profile && profile.calorie_goal) {
+        const { data: profile } = await supabase.from("profiles").select("ai_plan").eq("id", data.user.id).single();
+        if (profile && profile.ai_plan) {
           nav({ to: "/dashboard" });
         } else {
           nav({ to: "/onboarding" });

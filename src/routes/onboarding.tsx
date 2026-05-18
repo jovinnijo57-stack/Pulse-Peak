@@ -30,8 +30,8 @@ function Onboarding() {
         const { data: authData } = await supabase.auth.getUser();
         const userId = authData?.user?.id;
         if (userId) {
-          const { data: profileData } = await supabase.from("profiles").select("calorie_goal, phone").eq("id", userId).single();
-          if (profileData && profileData.calorie_goal) {
+          const { data: profileData } = await supabase.from("profiles").select("ai_plan, phone").eq("id", userId).single();
+          if (profileData && profileData.ai_plan) {
             nav({ to: "/dashboard" });
             return;
           }
