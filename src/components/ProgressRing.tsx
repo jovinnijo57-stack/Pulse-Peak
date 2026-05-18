@@ -32,9 +32,9 @@ export function ProgressRing({ value, max, size = 180, stroke = 14, label, sub, 
           transition={{ duration: 1.2, ease: "easeOut" }}
         />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        {label && <div className="font-display text-4xl font-bold tracking-tight">{label}</div>}
-        {sub && <div className="mt-1 text-xs uppercase tracking-widest text-primary-foreground/80 font-medium">{sub}</div>}
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-2 overflow-hidden">
+        {label && <div className="font-display text-2xl sm:text-3xl font-bold tracking-tight whitespace-nowrap">{label}</div>}
+        {sub && <div className="mt-0.5 text-[10px] uppercase tracking-wider text-primary-foreground/80 font-medium whitespace-nowrap">{sub}</div>}
       </div>
     </div>
   );

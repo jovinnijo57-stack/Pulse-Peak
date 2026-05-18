@@ -24,6 +24,8 @@ function Forgot() {
   const [timeLeft, setTimeLeft] = useState(60);
   const [canResend, setCanResend] = useState(false);
 
+  const [expectedOtp, setExpectedOtp] = useState("123456");
+
   // Password state
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -70,16 +72,18 @@ function Forgot() {
       return;
     }
 
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    setExpectedOtp(generatedOtp);
     setErrors({});
     setStep("otp");
     setTimeLeft(60);
     setCanResend(false);
-    console.log("OTP sent to:", email, "Use 123456 to verify.");
+    console.log("OTP sent to:", email, "Generated OTP:", generatedOtp);
 
     try {
       // Invoke live Supabase Edge Function to send real OTP via Brevo
       await supabase.functions.invoke('send-otp', {
-        body: { email, otp: "123456" }
+        body: { email, otp: generatedOtp }
       });
     } catch (err) {
       console.error("Failed to send reset OTP email via Supabase:", err);
@@ -87,11 +91,19 @@ function Forgot() {
   };
 
   const handleResend = () => {
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    setExpectedOtp(generatedOtp);
     setOtp(["", "", "", "", "", ""]);
     setTimeLeft(60);
     setCanResend(false);
     setErrors({});
-    console.log("New OTP sent to:", email);
+    console.log("New OTP sent to:", email, "Generated OTP:", generatedOtp);
+
+    try {
+      supabase.functions.invoke('send-otp', {
+        body: { email, otp: generatedOtp }
+      });
+    } catch (err) {}
   };
 
   const handleVerifyOtp = (e: React.FormEvent) => {
@@ -102,11 +114,11 @@ function Forgot() {
     }
 
     const otpString = otp.join("");
-    if (otpString === "123456") {
+    if (otpString === expectedOtp) {
       setErrors({});
       setStep("password");
     } else {
-      setErrors({ otp: "Invalid OTP. Try 123456." });
+      setErrors({ otp: `Invalid OTP. Please enter the 6-digit code sent to your email.` });
     }
   };
 
@@ -205,7 +217,7 @@ function Forgot() {
                   className={clsx(
                     "w-12 h-12 rounded-lg border bg-card/80 backdrop-blur-md text-center font-display text-xl outline-none transition-all focus:ring-2", 
                     errors.otp ? "border-destructive focus:ring-destructive/30 text-destructive" : 
-                    otp.join("") === "123456" ? "border-emerald-500/50 focus:ring-emerald-500/50" :
+                    otp.join("") === expectedOtp ? "border-emerald-500/50 focus:ring-emerald-500/50" :
                     "border-border focus:ring-primary/50 text-foreground"
                   )}
                   maxLength={1}
@@ -223,7 +235,7 @@ function Forgot() {
                   className={clsx(
                     "w-12 h-12 rounded-lg border bg-card/80 backdrop-blur-md text-center font-display text-xl outline-none transition-all focus:ring-2", 
                     errors.otp ? "border-destructive focus:ring-destructive/30 text-destructive" : 
-                    otp.join("") === "123456" ? "border-emerald-500/50 focus:ring-emerald-500/50" :
+                    otp.join("") === expectedOtp ? "border-emerald-500/50 focus:ring-emerald-500/50" :
                     "border-border focus:ring-primary/50 text-foreground"
                   )}
                   maxLength={1}
@@ -233,7 +245,7 @@ function Forgot() {
             
             {errors.otp && <p className="text-sm text-center font-medium text-destructive animate-in slide-in-from-top-1">{errors.otp}</p>}
             
-            {otp.join("") === "123456" && (
+            {otp.join("") === expectedOtp && (
               <div className="flex items-center justify-center gap-2 text-emerald-500 font-medium animate-in zoom-in-95">
                 <Check className="h-5 w-5" strokeWidth={3} />
                 <span className="text-lg">Code verified</span>

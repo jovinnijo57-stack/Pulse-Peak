@@ -22,9 +22,9 @@ function Diary() {
 
       <div className="mx-5 rounded-3xl bg-gradient-hero p-5 text-primary-foreground shadow-glow">
         <p className="text-xs uppercase tracking-widest text-primary-foreground/70">Daily total</p>
-        <div className="mt-1 flex items-baseline gap-1.5 flex-nowrap overflow-hidden whitespace-nowrap">
-          <span className="font-display text-3xl sm:text-4xl font-bold tracking-tight">{totals.eaten.kcal}</span>
-          <span className="text-sm sm:text-base font-medium text-primary-foreground/80">/ {state.profile.calorieGoal} kcal</span>
+        <div className="mt-1 flex items-baseline gap-1 flex-nowrap overflow-hidden whitespace-nowrap">
+          <span className="font-display text-2xl sm:text-3xl font-bold tracking-tight">{totals.eaten.kcal}</span>
+          <span className="text-xs sm:text-sm font-medium text-primary-foreground/80">/ {state.profile.calorieGoal} kcal</span>
         </div>
         <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
           <Mini label="Protein" v={totals.eaten.protein} />

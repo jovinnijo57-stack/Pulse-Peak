@@ -27,11 +27,13 @@ function WaterTracker() {
   // Load history from localStorage
   useEffect(() => {
     try {
-      const raw = localStorage.getItem("pulsepeak_water_history");
+      const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+      const userKey = currentUser.email ? `pulsepeak_water_${currentUser.email}` : "pulsepeak_water_history";
+      const raw = localStorage.getItem(userKey);
       if (raw) {
         setHistory(JSON.parse(raw));
       } else {
-        localStorage.setItem("pulsepeak_water_history", JSON.stringify(INITIAL_HISTORY));
+        localStorage.setItem(userKey, JSON.stringify(INITIAL_HISTORY));
       }
     } catch {}
   }, []);
@@ -40,6 +42,8 @@ function WaterTracker() {
   const handleAdd = (amount: number) => {
     addWater(amount);
     try {
+      const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+      const userKey = currentUser.email ? `pulsepeak_water_${currentUser.email}` : "pulsepeak_water_history";
       const newTotal = waterMl + amount;
       let currentHistory = [...history];
       const existingIdx = currentHistory.findIndex(h => h.date === todayStr);
@@ -49,19 +53,21 @@ function WaterTracker() {
         currentHistory.unshift({ date: todayStr, current: newTotal, goal: profile.waterGoalMl });
       }
       setHistory(currentHistory);
-      localStorage.setItem("pulsepeak_water_history", JSON.stringify(currentHistory));
+      localStorage.setItem(userKey, JSON.stringify(currentHistory));
     } catch {}
   };
 
   const handleReset = () => {
     resetWater();
     try {
+      const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+      const userKey = currentUser.email ? `pulsepeak_water_${currentUser.email}` : "pulsepeak_water_history";
       let currentHistory = [...history];
       const existingIdx = currentHistory.findIndex(h => h.date === todayStr);
       if (existingIdx >= 0) {
         currentHistory[existingIdx] = { ...currentHistory[existingIdx], current: 0 };
         setHistory(currentHistory);
-        localStorage.setItem("pulsepeak_water_history", JSON.stringify(currentHistory));
+        localStorage.setItem(userKey, JSON.stringify(currentHistory));
       }
     } catch {}
   };
@@ -194,8 +200,15 @@ function WaterTracker() {
             <input
               id="history-date"
               type="date"
+              max={todayStr}
               value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              onChange={(e) => {
+                if (e.target.value <= todayStr) {
+                  setSelectedDate(e.target.value);
+                } else {
+                  alert("Future dates cannot be selected for drinking history.");
+                }
+              }}
               className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
             />
             {selectedDate && (

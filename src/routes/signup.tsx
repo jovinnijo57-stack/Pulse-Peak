@@ -25,6 +25,8 @@ function Signup() {
   const [timeLeft, setTimeLeft] = useState(60);
   const [canResend, setCanResend] = useState(false);
 
+  const [expectedOtp, setExpectedOtp] = useState("123456");
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
 
@@ -71,16 +73,18 @@ function Signup() {
       return;
     }
 
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    setExpectedOtp(generatedOtp);
     setErrors({});
     setStep("otp");
     setTimeLeft(60);
     setCanResend(false);
-    console.log("OTP sent to:", formData.email, "Use 123456 to verify.");
+    console.log("OTP sent to:", formData.email, "Generated OTP:", generatedOtp);
 
     try {
       // Invoke live Supabase Edge Function to send real OTP via Brevo
       await supabase.functions.invoke('send-otp', {
-        body: { email: formData.email, otp: "123456" }
+        body: { email: formData.email, otp: generatedOtp }
       });
     } catch (err) {
       console.error("Failed to send OTP email via Supabase:", err);
@@ -88,11 +92,19 @@ function Signup() {
   };
 
   const handleResend = () => {
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    setExpectedOtp(generatedOtp);
     setOtp(["", "", "", "", "", ""]);
     setTimeLeft(60);
     setCanResend(false);
     setErrors({});
-    console.log("New OTP sent to:", formData.email);
+    console.log("New OTP sent to:", formData.email, "Generated OTP:", generatedOtp);
+
+    try {
+      supabase.functions.invoke('send-otp', {
+        body: { email: formData.email, otp: generatedOtp }
+      });
+    } catch (err) {}
   };
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
@@ -103,7 +115,7 @@ function Signup() {
     }
 
     const otpString = otp.join("");
-    if (otpString === "123456") {
+    if (otpString === expectedOtp) {
       const hashedPassword = await hashPassword(formData.password);
       const users = JSON.parse(localStorage.getItem("users") || "[]");
       const fullPhone = `${countryCode} ${formData.phone}`;
@@ -116,7 +128,7 @@ function Signup() {
         nav({ to: "/login" });
       }, 2500);
     } else {
-      setErrors({ otp: "Invalid OTP. Try 123456." });
+      setErrors({ otp: `Invalid OTP. Please enter the 6-digit code sent to your email.` });
     }
   };
 
@@ -286,7 +298,7 @@ function Signup() {
                   className={clsx(
                     "w-12 h-12 rounded-lg border bg-card/80 backdrop-blur-md text-center font-display text-xl outline-none transition-all focus:ring-2", 
                     errors.otp ? "border-destructive focus:ring-destructive/30 text-destructive" : 
-                    otp.join("") === "123456" ? "border-emerald-500/50 focus:ring-emerald-500/50" :
+                    otp.join("") === expectedOtp ? "border-emerald-500/50 focus:ring-emerald-500/50" :
                     "border-border focus:ring-primary/50 text-foreground"
                   )}
                   maxLength={1}
@@ -304,7 +316,7 @@ function Signup() {
                   className={clsx(
                     "w-12 h-12 rounded-lg border bg-card/80 backdrop-blur-md text-center font-display text-xl outline-none transition-all focus:ring-2", 
                     errors.otp ? "border-destructive focus:ring-destructive/30 text-destructive" : 
-                    otp.join("") === "123456" ? "border-emerald-500/50 focus:ring-emerald-500/50" :
+                    otp.join("") === expectedOtp ? "border-emerald-500/50 focus:ring-emerald-500/50" :
                     "border-border focus:ring-primary/50 text-foreground"
                   )}
                   maxLength={1}
@@ -314,7 +326,7 @@ function Signup() {
 
             <div className="flex items-center justify-between px-1 pt-1">
               <span className="text-xs text-muted-foreground">Enter 6-digit verification code</span>
-              {otp.join("") === "123456" && (
+              {otp.join("") === expectedOtp && (
                 <div className="flex items-center gap-1 text-emerald-500 text-xs font-semibold animate-in fade-in slide-in-from-right-2">
                   <Check className="h-3.5 w-3.5" strokeWidth={3} />
                   <span>Code verified</span>
