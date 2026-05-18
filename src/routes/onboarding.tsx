@@ -38,8 +38,8 @@ function Onboarding() {
           // Check if they logged in via Google and need phone
           const isGoogle = authData.user?.app_metadata?.provider === 'google' || authData.user?.app_metadata?.providers?.includes('google');
           if (isGoogle) {
-            const metaPhone = authData.user?.user_metadata?.phone;
-            if (!metaPhone && (!profileData || !profileData.phone)) {
+            const metaPhone = authData.user?.user_metadata?.phone || (profileData && profileData.phone);
+            if (!metaPhone) {
               setShowPhonePopup(true);
             }
           }

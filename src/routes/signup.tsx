@@ -132,7 +132,11 @@ function Signup() {
           }
         });
         if (error) {
-          setErrors({ otp: error.message });
+          if (error.message.includes("rate limit")) {
+            setErrors({ otp: "Supabase email rate limit exceeded (too many test signups). Please wait a few minutes or try another @gmail.com address to test registration!" });
+          } else {
+            setErrors({ otp: error.message });
+          }
           return;
         }
       } catch (err: any) {
