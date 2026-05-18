@@ -5,7 +5,7 @@ import { FOODS } from "@/lib/mock-data";
 import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/scan")({
-  head: () => ({ meta: [{ title: "Scan Barcode — FitCal AI" }] }),
+  head: () => ({ meta: [{ title: "Scan Barcode — PulsePeak" }] }),
   component: Scan,
 });
 

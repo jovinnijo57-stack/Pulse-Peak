@@ -3,7 +3,7 @@ import { ArrowLeft, Users, Utensils, Flag, TrendingUp } from "lucide-react";
 import { FOODS } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/admin")({
-  head: () => ({ meta: [{ title: "Admin — FitCal AI" }] }),
+  head: () => ({ meta: [{ title: "Admin — PulsePeak" }] }),
   component: Admin,
 });
 

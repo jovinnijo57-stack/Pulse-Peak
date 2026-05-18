@@ -1,4 +1,4 @@
-// Sample data for FitCal AI MVP (no backend yet)
+// Sample data for PulsePeak MVP (no backend yet)
 export type Food = {
   id: string;
   name: string;

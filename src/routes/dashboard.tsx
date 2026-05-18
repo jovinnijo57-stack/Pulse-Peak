@@ -89,10 +89,10 @@ function Dashboard() {
             <Droplet className="h-5 w-5" style={{ color: "var(--color-water)" }} />
             <span className="text-[10px] uppercase tracking-widest text-muted-foreground group-hover:text-primary transition">Track Water →</span>
           </div>
-          <p className="mt-3 font-display text-2xl font-bold">
-            {(state.waterMl / 1000).toFixed(1)}
-            <span className="ml-1 text-sm font-medium text-muted-foreground">/ {profile.waterGoalMl / 1000}L</span>
-          </p>
+          <div className="mt-3 flex items-baseline gap-1 flex-nowrap overflow-hidden whitespace-nowrap">
+            <span className="font-display text-2xl font-bold tracking-tight">{(state.waterMl / 1000).toFixed(1)}</span>
+            <span className="text-xs sm:text-sm font-medium text-muted-foreground">/ {profile.waterGoalMl / 1000}L</span>
+          </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
             <div className="h-full rounded-full" style={{ width: `${Math.min(100, (state.waterMl / profile.waterGoalMl) * 100)}%`, background: "var(--color-water)" }} />
           </div>

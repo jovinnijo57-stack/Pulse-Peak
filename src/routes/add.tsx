@@ -6,7 +6,7 @@ import { useStore, type MealType } from "@/lib/store";
 import { Search, ScanBarcode, Plus, BadgeCheck, X } from "lucide-react";
 
 export const Route = createFileRoute("/add")({
-  head: () => ({ meta: [{ title: "Add Food — FitCal AI" }] }),
+  head: () => ({ meta: [{ title: "Add Food — PulsePeak" }] }),
   validateSearch: (s: Record<string, unknown>) => ({ meal: (s.meal as MealType) || "Breakfast" }),
   component: AddFood,
 });

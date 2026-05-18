@@ -3,7 +3,7 @@ import { PhoneShell, ScreenHeader } from "@/components/PhoneShell";
 import { Plus, Calendar, Heart } from "lucide-react";
 
 export const Route = createFileRoute("/recipes")({
-  head: () => ({ meta: [{ title: "Recipes & Planner — FitCal AI" }] }),
+  head: () => ({ meta: [{ title: "Recipes & Planner — PulsePeak" }] }),
   component: Recipes,
 });
 

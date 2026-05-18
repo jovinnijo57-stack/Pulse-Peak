@@ -81,7 +81,7 @@ Provide a JSON response with exactly this structure:
     }
 
     const updatedProfile = {
-      ...data, profile: { name: "FitCal User" },
+      ...data, profile: { name: "PulsePeak User" },
       calorieGoal,
       proteinGoal: Math.round((calorieGoal * 0.3) / 4),
       carbsGoal: Math.round((calorieGoal * 0.4) / 4),

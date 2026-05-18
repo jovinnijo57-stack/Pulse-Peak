@@ -161,7 +161,7 @@ function Signup() {
               <Check className="h-8 w-8" strokeWidth={3} />
             </div>
             <h3 className="font-display text-2xl font-bold bg-gradient-to-r from-gold to-primary-foreground bg-clip-text text-transparent">Account Created!</h3>
-            <p className="text-sm text-muted-foreground mt-2">Your premium FitCal AI account is ready. Redirecting you to login...</p>
+            <p className="text-sm text-muted-foreground mt-2">Your premium PulsePeak account is ready. Redirecting you to login...</p>
           </div>
         </div>
       )}

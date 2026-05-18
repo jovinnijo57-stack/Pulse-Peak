@@ -12,7 +12,7 @@ const geminiAi = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "
 const groq = new Groq({ apiKey: import.meta.env.VITE_GROQ_API_KEY || "", dangerouslyAllowBrowser: true });
 
 export const Route = createFileRoute("/ai")({
-  head: () => ({ meta: [{ title: "AI Coach — FitCal AI" }] }),
+  head: () => ({ meta: [{ title: "AI Coach — PulsePeak" }] }),
   component: AIChat,
 });
 
@@ -34,7 +34,7 @@ const MarkdownOptions = {
   }
 };function AIChat() {
   const [messages, setMessages] = useState<Message[]>([
-    { role: "model", content: "Hi there! I'm your FitCal AI Coach. How can I help you reach your fitness and nutrition goals today?", id: "welcome" }
+    { role: "model", content: "Hi there! I'm your PulsePeak AI Coach. How can I help you reach your fitness and nutrition goals today?", id: "welcome" }
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -126,7 +126,7 @@ const MarkdownOptions = {
         }));
         const completion = await groq.chat.completions.create({
           messages: [
-            { role: "system", content: "You are FitCal AI Coach. Provide helpful fitness and nutrition advice." },
+            { role: "system", content: "You are PulsePeak AI Coach. Provide helpful fitness and nutrition advice." },
             ...groqHistory,
             { role: "user", content: userText }
           ],

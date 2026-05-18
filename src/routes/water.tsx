@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PhoneShell, ScreenHeader } from "@/components/PhoneShell";
 import { useStore } from "@/lib/store";
 import { motion } from "framer-motion";
-import { Droplet, Plus, RotateCcw, Calendar, CheckCircle2, Sparkles } from "lucide-react";
+import { Droplet, Plus, RotateCcw, Calendar, CheckCircle2, Sparkles, X } from "lucide-react";
 import { useState, useEffect } from "react";
 
 export const Route = createFileRoute("/water")({
@@ -12,18 +12,17 @@ export const Route = createFileRoute("/water")({
 
 type HistoryEntry = { date: string; current: number; goal: number };
 
-const INITIAL_HISTORY: HistoryEntry[] = [
-  { date: "Yesterday", current: 2400, goal: 2500 },
-  { date: "May 16", current: 2650, goal: 2500 },
-  { date: "May 15", current: 2100, goal: 2500 },
-  { date: "May 14", current: 2500, goal: 2500 },
-];
+// Remove fake data as requested by user
+const INITIAL_HISTORY: HistoryEntry[] = [];
 
 function WaterTracker() {
   const { state, addWater, resetWater } = useStore();
   const { profile, waterMl } = state;
   const [customMl, setCustomMl] = useState("");
   const [history, setHistory] = useState<HistoryEntry[]>(INITIAL_HISTORY);
+  const [selectedDate, setSelectedDate] = useState("");
+
+  const todayStr = new Date().toISOString().split('T')[0];
 
   // Load history from localStorage
   useEffect(() => {
@@ -42,17 +41,36 @@ function WaterTracker() {
     addWater(amount);
     try {
       const newTotal = waterMl + amount;
-      const currentHistory = [...history];
-      // Today is handled dynamically at the top of the list
+      let currentHistory = [...history];
+      const existingIdx = currentHistory.findIndex(h => h.date === todayStr);
+      if (existingIdx >= 0) {
+        currentHistory[existingIdx] = { ...currentHistory[existingIdx], current: newTotal };
+      } else {
+        currentHistory.unshift({ date: todayStr, current: newTotal, goal: profile.waterGoalMl });
+      }
+      setHistory(currentHistory);
       localStorage.setItem("pulsepeak_water_history", JSON.stringify(currentHistory));
     } catch {}
   };
 
   const handleReset = () => {
     resetWater();
+    try {
+      let currentHistory = [...history];
+      const existingIdx = currentHistory.findIndex(h => h.date === todayStr);
+      if (existingIdx >= 0) {
+        currentHistory[existingIdx] = { ...currentHistory[existingIdx], current: 0 };
+        setHistory(currentHistory);
+        localStorage.setItem("pulsepeak_water_history", JSON.stringify(currentHistory));
+      }
+    } catch {}
   };
 
   const pct = Math.min(100, Math.max(0, (waterMl / profile.waterGoalMl) * 100));
+
+  const displayHistory = selectedDate 
+    ? history.filter(h => h.date === selectedDate)
+    : history.filter(h => h.date !== todayStr); // Today is shown separately at the top when no date is filtered
 
   return (
     <PhoneShell>
@@ -168,30 +186,49 @@ function WaterTracker() {
       <div className="mx-5 mt-6 pb-20">
         <div className="mb-3 flex items-center justify-between px-1">
           <span className="font-display text-xs font-semibold uppercase tracking-wider text-muted-foreground">Drinking History Log</span>
-          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <div className="relative flex items-center gap-2">
+            <label htmlFor="history-date" className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-cyan-500 hover:opacity-80 bg-cyan-500/10 border border-cyan-500/20 px-3 py-1.5 rounded-xl transition shadow-sm">
+              <Calendar className="h-4 w-4 text-cyan-500" />
+              <span>{selectedDate ? selectedDate : "Filter Date"}</span>
+            </label>
+            <input
+              id="history-date"
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+            />
+            {selectedDate && (
+              <button onClick={() => setSelectedDate("")} className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-0.5 bg-muted px-2 py-1.5 rounded-xl transition">
+                <X className="h-3 w-3" /> Clear
+              </button>
+            )}
+          </div>
         </div>
         <div className="space-y-2.5">
-          {/* Today's live log */}
-          <div className="flex items-center justify-between rounded-2xl border border-cyan-500/30 bg-cyan-500/5 p-4 shadow-sm backdrop-blur-sm">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-500 font-bold text-base shadow-inner">
-                {pct >= 100 ? <CheckCircle2 className="h-5 w-5 text-cyan-500" /> : "💧"}
+          {/* Today's live log (Shown when no specific date is filtered, or if today is selected) */}
+          {(!selectedDate || selectedDate === todayStr) && (
+            <div className="flex items-center justify-between rounded-2xl border border-cyan-500/30 bg-cyan-500/5 p-4 shadow-sm backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-500 font-bold text-base shadow-inner">
+                  {pct >= 100 ? <CheckCircle2 className="h-5 w-5 text-cyan-500" /> : "💧"}
+                </div>
+                <div>
+                  <p className="font-display text-sm font-bold text-foreground">Today ({todayStr})</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Target: {(profile.waterGoalMl / 1000).toFixed(1)}L</p>
+                </div>
               </div>
-              <div>
-                <p className="font-display text-sm font-bold text-foreground">Today</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Target: {(profile.waterGoalMl / 1000).toFixed(1)}L</p>
+              <div className="text-right">
+                <p className="font-display text-base font-bold text-foreground">{(waterMl / 1000).toFixed(1)}L</p>
+                <p className="text-[10px] text-cyan-500 font-semibold uppercase tracking-wider mt-0.5">
+                  {pct >= 100 ? "Goal Reached" : `${Math.round(pct)}% Completed`}
+                </p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="font-display text-base font-bold text-foreground">{(waterMl / 1000).toFixed(1)}L</p>
-              <p className="text-[10px] text-cyan-500 font-semibold uppercase tracking-wider mt-0.5">
-                {pct >= 100 ? "Goal Reached" : `${Math.round(pct)}% Completed`}
-              </p>
-            </div>
-          </div>
+          )}
 
-          {/* Past days */}
-          {history.map((h, idx) => {
+          {/* Past days / Filtered result */}
+          {displayHistory.map((h, idx) => {
             const hPct = Math.min(100, (h.current / h.goal) * 100);
             return (
               <div key={idx} className="flex items-center justify-between rounded-2xl border border-border bg-gradient-card p-4 shadow-sm">
@@ -213,6 +250,27 @@ function WaterTracker() {
               </div>
             );
           })}
+
+          {/* Empty state when filtering a date with no records */}
+          {selectedDate && selectedDate !== todayStr && displayHistory.length === 0 && (
+            <div className="flex items-center justify-between rounded-2xl border border-border bg-card p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-muted-foreground font-bold text-base">
+                  💧
+                </div>
+                <div>
+                  <p className="font-display text-sm font-semibold text-foreground">{selectedDate}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Target: {(profile.waterGoalMl / 1000).toFixed(1)}L</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="font-display text-base font-bold text-foreground">0.0L</p>
+                <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mt-0.5">
+                  0% Completed (No log)
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </PhoneShell>

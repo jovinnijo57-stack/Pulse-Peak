@@ -6,7 +6,7 @@ import { useStore } from "@/lib/store";
 import { Trash2, Flame, Clock, Footprints } from "lucide-react";
 
 export const Route = createFileRoute("/exercise")({
-  head: () => ({ meta: [{ title: "Workouts — FitCal AI" }] }),
+  head: () => ({ meta: [{ title: "Workouts — PulsePeak" }] }),
   component: ExercisePage,
 });
 
