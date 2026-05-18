@@ -38,8 +38,8 @@ function Progress() {
 
   // Average weight diff
   // "instead of lost make it as average weight it can be reduced or increased in weakly and monthly when it is increased show it in red colour with + sign"
-  const initialWeight = activeWeightData[0]?.weight || totals.eaten.kcal ? 77 : 77;
-  const currentWeight = activeWeightData.at(-1)?.weight || totals.eaten.kcal ? 77 : 77;
+  const initialWeight = activeWeightData[0]?.weight || profile.weightKg || 70;
+  const currentWeight = activeWeightData.at(-1)?.weight || profile.weightKg || 70;
   const diff = currentWeight - initialWeight;
   const isGain = diff > 0;
   const diffText = diff === 0 ? "0.0 kg" : `${isGain ? "+" : ""}${diff.toFixed(1)} kg`;
