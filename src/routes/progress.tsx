@@ -11,20 +11,6 @@ export const Route = createFileRoute("/progress")({
   component: Progress,
 });
 
-const MONTHLY_WEIGHT = [
-  { day: "Wk 1", weight: 78.5 },
-  { day: "Wk 2", weight: 78.1 },
-  { day: "Wk 3", weight: 77.6 },
-  { day: "Wk 4", weight: 77.1 },
-];
-
-const MONTHLY_CALORIE = [
-  { day: "Wk 1", eaten: 2150, burned: 450 },
-  { day: "Wk 2", eaten: 2020, burned: 410 },
-  { day: "Wk 3", eaten: 1980, burned: 480 },
-  { day: "Wk 4", eaten: 2090, burned: 520 },
-];
-
 function Progress() {
   const [tab, setTab] = useState<"weekly" | "monthly">("weekly");
   const totals = useTotals();
@@ -32,15 +18,25 @@ function Progress() {
   const weightHistory = getWeightHistory();
   const calorieHistory = getCalorieHistory(totals.eaten.kcal, totals.burned);
 
-  const activeWeightData = tab === "weekly" ? weightHistory : MONTHLY_WEIGHT;
-  const activeCalorieData = tab === "weekly" ? calorieHistory : MONTHLY_CALORIE;
+  // Weekly: last 7 days. Monthly: last 30 days.
+  const activeWeightData = tab === "weekly" ? weightHistory.slice(-7) : weightHistory.slice(-30);
+  const activeCalorieData = tab === "weekly" ? calorieHistory.slice(-7) : calorieHistory.slice(-30);
 
-  const avgKcal = tab === "weekly" 
-    ? (calorieHistory.length > 0 ? Math.round(calorieHistory.reduce((a, c) => a + c.eaten, 0) / calorieHistory.length) : totals.eaten.kcal)
-    : Math.round(MONTHLY_CALORIE.reduce((a, c) => a + c.eaten, 0) / MONTHLY_CALORIE.length);
+  // Avg kcal
+  const avgKcal = activeCalorieData.length > 0 
+    ? Math.round(activeCalorieData.reduce((a, c) => a + c.eaten, 0) / activeCalorieData.length)
+    : totals.eaten.kcal;
 
-  const initialWeight = tab === "weekly" ? (weightHistory[0]?.weight || totals.eaten.kcal ? 77 : 77) : MONTHLY_WEIGHT[0].weight;
-  const currentWeight = tab === "weekly" ? (weightHistory.at(-1)?.weight || totals.eaten.kcal ? 77 : 77) : MONTHLY_WEIGHT.at(-1)!.weight;
+  // Active Days count
+  // "according when the user marks calorie,workouts,water taken etc active days are calculated"
+  const activeDaysCount = activeCalorieData.filter(d => d.eaten > 0 || d.burned > 0).length;
+  const totalDays = tab === "weekly" ? 7 : 30;
+  const activeDaysText = `${activeDaysCount} / ${totalDays} days`;
+
+  // Average weight diff
+  // "instead of lost make it as average weight it can be reduced or increased in weakly and monthly when it is increased show it in red colour with + sign"
+  const initialWeight = activeWeightData[0]?.weight || totals.eaten.kcal ? 77 : 77;
+  const currentWeight = activeWeightData.at(-1)?.weight || totals.eaten.kcal ? 77 : 77;
   const diff = currentWeight - initialWeight;
   const isGain = diff > 0;
   const diffText = diff === 0 ? "0.0 kg" : `${isGain ? "+" : ""}${diff.toFixed(1)} kg`;
@@ -74,8 +70,8 @@ function Progress() {
       <div className="mx-5 grid grid-cols-3 gap-3 animate-in fade-in duration-300">
         {[
           { l: "Avg kcal", v: `${avgKcal}` },
-          { l: tab === "weekly" ? "Streak" : "Active Days", v: tab === "weekly" ? "12 days" : "26 days" },
-          { l: isGain ? "Gained" : "Lost", v: diffText, color: isGain ? "text-destructive" : "text-success" },
+          { l: "Active Days", v: activeDaysText },
+          { l: "Avg Weight", v: diffText, color: isGain ? "text-destructive" : "text-success" },
         ].map((s) => (
           <div key={s.l} className="rounded-2xl border border-border bg-gradient-card p-3 shadow-card">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{s.l}</p>

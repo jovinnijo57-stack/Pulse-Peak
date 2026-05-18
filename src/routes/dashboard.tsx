@@ -120,7 +120,6 @@ function Dashboard() {
         <Link to="/ai" className="group relative overflow-hidden rounded-3xl bg-gradient-gold p-4 text-gold-foreground shadow-card">
           <Sparkles className="h-5 w-5" />
           <p className="mt-3 font-display text-lg font-bold leading-tight">AI meal ideas</p>
-          <p className="mt-1 text-xs opacity-80">Based on what's left today</p>
           <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold">
             Get suggestions →
           </span>
