@@ -27,6 +27,12 @@ function AddFood() {
       if (filterCategory === "High Protein") return f.protein >= 20;
       if (filterCategory === "Low Calorie") return f.kcal <= 150;
       if (filterCategory === "Recipes") return f.brand === "Recipe";
+      if (filterCategory === "Healthy / Clean") return f.category === "Healthy" || (f.kcal <= 250 && f.fats <= 10);
+      if (filterCategory === "Cheat Meals") return f.category === "Indulgent" || f.kcal >= 400 || f.fats >= 20;
+      if (filterCategory === "Indian Delicacies") return f.id.startsWith("in") || f.category === "Indian";
+      if (filterCategory === "Low Carb / Keto") return f.carbs <= 15;
+      if (filterCategory === "Vegetarian") return !f.name.toLowerCase().includes("chicken") && !f.name.toLowerCase().includes("salmon") && !f.name.toLowerCase().includes("mutton") && !f.name.toLowerCase().includes("fish") && !f.name.toLowerCase().includes("prawn") && !f.name.toLowerCase().includes("turkey") && !f.name.toLowerCase().includes("bacon") && !f.name.toLowerCase().includes("beef");
+      if (filterCategory === "Beverages") return f.category === "Beverage" || f.serving.includes("ml") || f.serving.includes("cup") || f.serving.includes("glass");
       return true;
     });
   }, [q, filterCategory]);
@@ -89,8 +95,8 @@ function AddFood() {
               <span className="hidden sm:inline">{filterCategory}</span>
             </button>
             {showFilter && (
-              <div className="absolute right-0 top-14 z-30 w-40 rounded-2xl border border-border bg-card p-2 shadow-glow animate-in fade-in zoom-in-95">
-                {["All", "High Protein", "Low Calorie", "Recipes"].map(cat => (
+              <div className="absolute right-0 top-14 z-30 w-48 rounded-2xl border border-border bg-card p-2 shadow-glow animate-in fade-in zoom-in-95 max-h-80 overflow-y-auto scrollbar-hide">
+                {["All", "High Protein", "Low Calorie", "Recipes", "Healthy / Clean", "Cheat Meals", "Indian Delicacies", "Low Carb / Keto", "Vegetarian", "Beverages"].map(cat => (
                   <button
                     key={cat}
                     onClick={() => { setFilterCategory(cat); setShowFilter(false); }}
