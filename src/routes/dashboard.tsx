@@ -1,0 +1,167 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { motion } from "framer-motion";
+import { Bell, Droplet, Flame, TrendingDown, Activity, Plus, Sparkles } from "lucide-react";
+import { PhoneShell, ScreenHeader } from "@/components/PhoneShell";
+import { ProgressRing, MacroBar } from "@/components/ProgressRing";
+import { useStore, useTotals } from "@/lib/store";
+import { CALORIE_HISTORY, WEIGHT_HISTORY } from "@/lib/mock-data";
+import { LineChart, Line, ResponsiveContainer, BarChart, Bar, XAxis, Tooltip } from "recharts";
+
+export const Route = createFileRoute("/dashboard")({
+  head: () => ({ meta: [{ title: "Dashboard — FitCal AI" }] }),
+  component: Dashboard,
+});
+
+function Dashboard() {
+  const { state, addWater } = useStore();
+  const totals = useTotals();
+  const { profile } = state;
+
+  return (
+    <PhoneShell>
+      <ScreenHeader
+        title={`Hey ${profile.name.split(" ")[0]} 👋`}
+        subtitle="Let's crush today's goals."
+        action={
+          <Link to="/profile" className="grid h-10 w-10 place-items-center rounded-2xl border border-border bg-card">
+            <Bell className="h-4 w-4" />
+          </Link>
+        }
+      />
+
+      {/* Calorie hero */}
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mx-5 overflow-hidden rounded-3xl bg-gradient-hero p-5 text-primary-foreground shadow-glow"
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-primary-foreground/70">Today</p>
+            <p className="font-display text-lg font-semibold">Calories remaining</p>
+          </div>
+          <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
+            Goal {profile.calorieGoal}
+          </span>
+        </div>
+
+        <div className="mt-4 flex items-center gap-4">
+          <ProgressRing
+            value={totals.eaten.kcal}
+            max={profile.calorieGoal}
+            size={150}
+            stroke={12}
+            label={`${Math.max(0, totals.remaining)}`}
+            sub="kcal left"
+            color="oklch(0.78 0.13 85)"
+          />
+          <div className="flex-1 space-y-3 text-sm">
+            <Stat icon={<Flame className="h-4 w-4 text-gold" />} label="Eaten" value={`${totals.eaten.kcal} kcal`} />
+            <Stat icon={<Activity className="h-4 w-4 text-gold" />} label="Burned" value={`${totals.burned} kcal`} />
+            <Stat icon={<TrendingDown className="h-4 w-4 text-gold" />} label="Net" value={`${totals.net} kcal`} />
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Macros */}
+      <div className="mx-5 mt-4 rounded-3xl border border-border bg-gradient-card p-5 shadow-card">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-display text-base font-semibold">Macros</h2>
+          <span className="text-xs text-muted-foreground">Daily targets</span>
+        </div>
+        <div className="space-y-3.5">
+          <MacroBar label="Protein" value={totals.eaten.protein} max={profile.proteinGoal} color="var(--color-protein)" />
+          <MacroBar label="Carbs" value={totals.eaten.carbs} max={profile.carbsGoal} color="var(--color-carbs)" />
+          <MacroBar label="Fats" value={totals.eaten.fats} max={profile.fatsGoal} color="var(--color-fats)" />
+        </div>
+      </div>
+
+      {/* Water + AI tile */}
+      <div className="mx-5 mt-4 grid grid-cols-2 gap-3">
+        <div className="rounded-3xl border border-border bg-gradient-card p-4 shadow-card">
+          <div className="flex items-center justify-between">
+            <Droplet className="h-5 w-5" style={{ color: "var(--color-water)" }} />
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Water</span>
+          </div>
+          <p className="mt-3 font-display text-2xl font-bold">
+            {(state.waterMl / 1000).toFixed(1)}
+            <span className="ml-1 text-sm font-medium text-muted-foreground">/ {profile.waterGoalMl / 1000}L</span>
+          </p>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+            <div className="h-full rounded-full" style={{ width: `${Math.min(100, (state.waterMl / profile.waterGoalMl) * 100)}%`, background: "var(--color-water)" }} />
+          </div>
+          <div className="mt-3 flex gap-1.5">
+            {[250, 500].map((ml) => (
+              <button key={ml} onClick={() => addWater(ml)} className="flex-1 rounded-xl bg-muted py-1.5 text-xs font-semibold">
+                +{ml}ml
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <Link to="/ai" className="group relative overflow-hidden rounded-3xl bg-gradient-gold p-4 text-gold-foreground shadow-card">
+          <Sparkles className="h-5 w-5" />
+          <p className="mt-3 font-display text-lg font-bold leading-tight">AI meal ideas</p>
+          <p className="mt-1 text-xs opacity-80">Based on what's left today</p>
+          <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold">
+            Get suggestions →
+          </span>
+        </Link>
+      </div>
+
+      {/* Weight chart */}
+      <div className="mx-5 mt-4 rounded-3xl border border-border bg-gradient-card p-5 shadow-card">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-muted-foreground">Weight trend</p>
+            <p className="font-display text-2xl font-bold">{WEIGHT_HISTORY.at(-1)?.weight} kg</p>
+          </div>
+          <span className="rounded-full bg-success/15 px-2.5 py-1 text-xs font-semibold text-success">-1.1 kg</span>
+        </div>
+        <div className="h-28">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={WEIGHT_HISTORY} margin={{ left: -20, right: 6, top: 6, bottom: 0 }}>
+              <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={10} tick={{ fill: "var(--color-muted-foreground)" }} />
+              <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12 }} />
+              <Line type="monotone" dataKey="weight" stroke="var(--color-primary)" strokeWidth={3} dot={{ r: 3, fill: "var(--color-primary)" }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Weekly calories */}
+      <div className="mx-5 mt-4 mb-2 rounded-3xl border border-border bg-gradient-card p-5 shadow-card">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-muted-foreground">This week</p>
+            <p className="font-display text-base font-semibold">Calories in vs out</p>
+          </div>
+          <Link to="/progress" className="text-xs font-semibold text-primary">View report</Link>
+        </div>
+        <div className="h-32">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={CALORIE_HISTORY} margin={{ left: -20, right: 6, top: 6, bottom: 0 }}>
+              <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={10} tick={{ fill: "var(--color-muted-foreground)" }} />
+              <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12 }} />
+              <Bar dataKey="eaten" fill="var(--color-primary)" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="burned" fill="var(--color-gold)" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <Link to="/add" className="fixed bottom-24 right-4 z-30 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-hero text-primary-foreground shadow-glow md:hidden">
+        <Plus className="h-5 w-5" />
+      </Link>
+    </PhoneShell>
+  );
+}
+
+function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="flex items-center gap-2 text-primary-foreground/80">{icon}{label}</span>
+      <span className="font-display font-semibold">{value}</span>
+    </div>
+  );
+}
