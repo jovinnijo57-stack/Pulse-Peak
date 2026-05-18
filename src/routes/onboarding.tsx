@@ -27,8 +27,11 @@ function Onboarding() {
   useEffect(() => {
     async function checkExistingProfile() {
       try {
+        const { data: sessionData } = await supabase.auth.getSession();
         const { data: authData } = await supabase.auth.getUser();
-        const userId = authData?.user?.id;
+        const user = authData?.user || sessionData?.session?.user;
+        const userId = user?.id;
+
         if (userId) {
           const { data: profileData } = await supabase.from("profiles").select("ai_plan, phone").eq("id", userId).single();
           if (profileData && profileData.ai_plan) {
@@ -36,19 +39,19 @@ function Onboarding() {
             return;
           }
           // Check if they logged in via Google and need phone
-          const isGoogle = authData.user?.app_metadata?.provider === 'google' || authData.user?.app_metadata?.providers?.includes('google');
+          const isGoogle = user?.app_metadata?.provider === 'google' || user?.app_metadata?.providers?.includes('google') || user?.user_metadata?.iss?.includes('google');
           if (isGoogle) {
-            const metaPhone = authData.user?.user_metadata?.phone || (profileData && profileData.phone);
+            const metaPhone = user?.user_metadata?.phone || (profileData && profileData.phone);
             if (!metaPhone) {
               setShowPhonePopup(true);
             }
           }
         }
-      } catch {}
+      } catch (err) { console.error("checkExistingProfile error:", err); }
     }
     checkExistingProfile();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
         checkExistingProfile();
       }
