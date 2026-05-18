@@ -1,13 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { Bell, Droplet, Flame, TrendingDown, Activity, Sparkles, Phone } from "lucide-react";
+import { Bell, Droplet, Flame, TrendingDown, Activity, Sparkles } from "lucide-react";
 import { PhoneShell, ScreenHeader } from "@/components/PhoneShell";
 import { ProgressRing, MacroBar } from "@/components/ProgressRing";
 import { useStore, useTotals } from "@/lib/store";
 import { getCalorieHistory, getWeightHistory } from "@/lib/mock-data";
 import { LineChart, Line, ResponsiveContainer, BarChart, Bar, XAxis, Tooltip } from "recharts";
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — PulsePeak" }] }),
@@ -15,70 +13,12 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function Dashboard() {
-  const { state, addWater, setProfile } = useStore();
+  const { state, addWater } = useStore();
   const totals = useTotals();
   const { profile } = state;
   const userName = profile.name || "User";
 
-  // Phone number modal state for Google login users
-  const [showPhonePopup, setShowPhonePopup] = useState(false);
-  const [countryCode, setCountryCode] = useState("+91");
-  const [phoneInput, setPhoneInput] = useState("");
-  const [phoneError, setPhoneError] = useState("");
-  const [savingPhone, setSavingPhone] = useState(false);
-
-  useEffect(() => {
-    async function checkGoogleUserPhone() {
-      try {
-        const { data: authData } = await supabase.auth.getUser();
-        if (authData?.user) {
-          // Check if they logged in via Google
-          const isGoogle = authData.user.app_metadata?.provider === 'google' || authData.user.app_metadata?.providers?.includes('google');
-          if (isGoogle) {
-            // Check if phone is missing from user_metadata AND profile table
-            const metaPhone = authData.user.user_metadata?.phone;
-            const { data: profileData } = await supabase.from("profiles").select("phone").eq("id", authData.user.id).single();
-            if (!metaPhone && (!profileData || !profileData.phone)) {
-              setShowPhonePopup(true);
-            }
-          }
-        }
-      } catch {}
-    }
-    checkGoogleUserPhone();
-  }, []);
-
-  const handleSavePhone = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (phoneInput.length < 10) {
-      setPhoneError("Please enter a valid 10-digit phone number.");
-      return;
-    }
-    setSavingPhone(true);
-    setPhoneError("");
-    const fullPhone = `${countryCode} ${phoneInput}`;
-    try {
-      const { data: authData } = await supabase.auth.getUser();
-      if (authData?.user) {
-        await supabase.auth.updateUser({
-          data: { phone: fullPhone }
-        });
-        await supabase.from("profiles").update({
-          phone: fullPhone
-        }).eq("id", authData.user.id);
-        
-        // Also update store profile
-        setProfile({ phone: fullPhone });
-      }
-      setShowPhonePopup(false);
-    } catch (err: any) {
-      setPhoneError(err.message || "Failed to save phone number.");
-    } finally {
-      setSavingPhone(false);
-    }
-  };
-
-  const weightHistory = getWeightHistory(profile.email);
+  const weightHistory = getWeightHistory(profile.email, profile.weightKg);
   const calorieHistory = getCalorieHistory(totals.eaten.kcal, totals.burned, profile.email);
   const latestWeight = weightHistory.at(-1)?.weight || profile.weightKg;
   const initialWeight = weightHistory[0]?.weight || profile.weightKg;
@@ -90,60 +30,6 @@ function Dashboard() {
 
   return (
     <PhoneShell>
-      {showPhonePopup && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-md z-50 flex items-center justify-center p-6 animate-in fade-in duration-300">
-          <div className="bg-gradient-card border border-border rounded-3xl p-8 max-w-sm w-full shadow-glow flex flex-col items-center animate-in zoom-in-95 duration-300">
-            <div className="h-16 w-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-6 shadow-sm">
-              <Phone className="h-8 w-8" />
-            </div>
-            <h3 className="font-display text-2xl font-bold text-foreground text-center">Complete Your Profile</h3>
-            <p className="text-sm text-muted-foreground mt-2 text-center">As a Google login user, please enter your phone number to secure your account and access your dashboard.</p>
-            
-            <form onSubmit={handleSavePhone} className="w-full mt-6 space-y-4">
-              <div>
-                <div className="flex items-center gap-2 rounded-2xl border border-border bg-card/80 backdrop-blur-md px-3 py-3.5 transition-all focus-within:ring-2 focus-within:ring-primary/50">
-                  <Phone className="h-4 w-4 ml-1 text-muted-foreground" />
-                  <select 
-                    value={countryCode} 
-                    onChange={(e) => setCountryCode(e.target.value)}
-                    className="bg-transparent text-sm outline-none appearance-none pr-2 font-medium"
-                  >
-                    <option value="+91">🇮🇳 +91</option>
-                    <option value="+1">🇺🇸 +1</option>
-                    <option value="+44">🇬🇧 +44</option>
-                    <option value="+61">🇦🇺 +61</option>
-                    <option value="+1">🇨🇦 +1</option>
-                    <option value="+49">🇩🇪 +49</option>
-                    <option value="+33">🇫🇷 +33</option>
-                    <option value="+81">🇯🇵 +81</option>
-                    <option value="+55">🇧🇷 +55</option>
-                    <option value="+27">🇿🇦 +27</option>
-                  </select>
-                  <div className="h-4 w-px bg-border" />
-                  <input 
-                    type="tel" 
-                    value={phoneInput} 
-                    onChange={(e) => { setPhoneInput(e.target.value.replace(/\D/g, '').slice(0, 10)); setPhoneError(""); }} 
-                    placeholder="Phone number" 
-                    className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground" 
-                    required 
-                  />
-                </div>
-                {phoneError && <p className="mt-1.5 text-xs font-medium text-destructive px-1 animate-in slide-in-from-top-1">{phoneError}</p>}
-              </div>
-
-              <button 
-                type="submit" 
-                disabled={savingPhone || phoneInput.length < 10}
-                className="w-full rounded-2xl bg-gradient-hero py-4 font-display text-base font-semibold text-primary-foreground shadow-glow transition active:scale-[0.98] disabled:opacity-50 disabled:grayscale"
-              >
-                {savingPhone ? "Saving..." : "Save Phone Number"}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
       <ScreenHeader
         title={`Hey ${userName.split(" ")[0]} 👋`}
         subtitle="Let's crush today's goals."

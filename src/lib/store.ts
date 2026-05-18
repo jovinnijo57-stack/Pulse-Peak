@@ -23,6 +23,7 @@ export type Profile = {
   carbsGoal: number;
   fatsGoal: number;
   waterGoalMl: number;
+  aiPlan?: any;
 };
 
 type State = {
@@ -37,14 +38,14 @@ const defaultState: State = {
   profile: {
     email: "",
     phone: "",
-    name: "Alex",
+    name: "",
     age: 28,
     gender: "male",
     heightCm: 178,
-    weightKg: 77,
+    weightKg: 0,
     goal: "lose",
     activity: 1.55,
-    calorieGoal: 2100,
+    calorieGoal: 0,
     proteinGoal: 150,
     carbsGoal: 220,
     fatsGoal: 70,
@@ -108,7 +109,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               ...loaded.profile,
               email: profileData.email || authData?.user?.email || "",
               phone: profileData.phone || authData?.user?.user_metadata?.phone || "",
-              name: profileData.name || loaded.profile.name,
+              name: profileData.name || authData?.user?.user_metadata?.full_name || "PulsePeak User",
               goal: profileData.goal || loaded.profile.goal,
               calorieGoal: profileData.calorie_goal || loaded.profile.calorieGoal,
               waterGoalMl: profileData.water_goal_ml || loaded.profile.waterGoalMl,
@@ -116,10 +117,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               carbsGoal: profileData.carbs_goal || loaded.profile.carbsGoal,
               fatsGoal: profileData.fats_goal || loaded.profile.fatsGoal,
               weightKg: profileData.weight_kg || loaded.profile.weightKg,
+              aiPlan: profileData.ai_plan || loaded.profile.aiPlan,
             };
           } else {
             loaded.profile.email = authData?.user?.email || "";
             loaded.profile.phone = authData?.user?.user_metadata?.phone || "";
+            loaded.profile.name = authData?.user?.user_metadata?.full_name || "New User";
           }
 
           // Fetch Meals for today
@@ -194,6 +197,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               carbs_goal: updatedProfile.carbsGoal,
               fats_goal: updatedProfile.fatsGoal,
               weight_kg: updatedProfile.weightKg,
+              ai_plan: updatedProfile.aiPlan,
             }).then();
           }
         });

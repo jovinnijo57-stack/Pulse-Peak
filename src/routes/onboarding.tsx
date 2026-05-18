@@ -97,16 +97,15 @@ Provide a JSON response with exactly this structure:
       console.error("AI onboarding analysis fallback to default plan:", err);
     }
 
-    const updatedProfile = {
-      ...data, profile: { name: "PulsePeak User" },
+    const updatedProfile: Partial<Profile> = {
+      ...data,
       calorieGoal,
       proteinGoal: Math.round((calorieGoal * 0.3) / 4),
       carbsGoal: Math.round((calorieGoal * 0.4) / 4),
       fatsGoal: Math.round((calorieGoal * 0.3) / 9),
       waterGoalMl: data.waterGoalL * 1000,
-      aiPlan
+      aiPlan,
     };
-
     setProfile(updatedProfile as any);
 
     // Save to Supabase profiles table
@@ -126,6 +125,7 @@ Provide a JSON response with exactly this structure:
           carbs_goal: Math.round((calorieGoal * 0.4) / 4),
           fats_goal: Math.round((calorieGoal * 0.3) / 9),
           weight_kg: data.weightKg,
+          ai_plan: aiPlan,
         });
       }
     } catch (err) { console.error("Supabase profile save error:", err); }
@@ -136,6 +136,60 @@ Provide a JSON response with exactly this structure:
 
   return (
     <div className="min-h-dvh bg-background relative">
+      {showPhonePopup && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-md z-50 flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="bg-gradient-card border border-border rounded-3xl p-8 max-w-sm w-full shadow-glow flex flex-col items-center animate-in zoom-in-95 duration-300">
+            <div className="h-16 w-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-6 shadow-sm">
+              <Phone className="h-8 w-8" />
+            </div>
+            <h3 className="font-display text-2xl font-bold text-foreground text-center">Complete Your Profile</h3>
+            <p className="text-sm text-muted-foreground mt-2 text-center">As a Google login user, please enter your phone number before setting up your personalized AI plan.</p>
+            
+            <form onSubmit={handleSavePhone} className="w-full mt-6 space-y-4">
+              <div>
+                <div className="flex items-center gap-2 rounded-2xl border border-border bg-card/80 backdrop-blur-md px-3 py-3.5 transition-all focus-within:ring-2 focus-within:ring-primary/50">
+                  <Phone className="h-4 w-4 ml-1 text-muted-foreground" />
+                  <select 
+                    value={countryCode} 
+                    onChange={(e) => setCountryCode(e.target.value)}
+                    className="bg-transparent text-sm outline-none appearance-none pr-2 font-medium"
+                  >
+                    <option value="+91">🇮🇳 +91</option>
+                    <option value="+1">🇺🇸 +1</option>
+                    <option value="+44">🇬🇧 +44</option>
+                    <option value="+61">🇦🇺 +61</option>
+                    <option value="+1">🇨🇦 +1</option>
+                    <option value="+49">🇩🇪 +49</option>
+                    <option value="+33">🇫🇷 +33</option>
+                    <option value="+81">🇯🇵 +81</option>
+                    <option value="+55">🇧🇷 +55</option>
+                    <option value="+27">🇿🇦 +27</option>
+                  </select>
+                  <div className="h-4 w-px bg-border" />
+                  <input 
+                    type="tel" 
+                    value={phoneInput} 
+                    onChange={(e) => { setPhoneInput(e.target.value.replace(/\D/g, '').slice(0, 10)); setPhoneError(""); }} 
+                    placeholder="Phone number" 
+                    className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground" 
+                    required 
+                  />
+                </div>
+                {phoneError && <p className="mt-1.5 text-xs font-medium text-destructive px-1 animate-in slide-in-from-top-1">{phoneError}</p>}
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={savingPhone || phoneInput.length < 10}
+                className="w-full rounded-2xl bg-gradient-hero py-4 font-display text-base font-semibold text-primary-foreground shadow-glow transition active:scale-[0.98] disabled:opacity-50 disabled:grayscale"
+              >
+                {savingPhone ? "Saving..." : "Save Phone Number"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {analyzing && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-md z-50 flex items-center justify-center p-6 animate-in fade-in duration-300">
           <div className="bg-gradient-card border border-border rounded-3xl p-8 max-w-sm w-full text-center shadow-glow flex flex-col items-center animate-in zoom-in-95 duration-300">

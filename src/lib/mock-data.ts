@@ -180,23 +180,24 @@ export const EXERCISES: Exercise[] = [
 
 export const WEIGHT_HISTORY: { day: string; weight: number }[] = [];
 
-export function getWeightHistory(userEmail?: string) {
+export function getWeightHistory(userEmail?: string, profileWeight?: number) {
   if (typeof window === "undefined" || !userEmail) return [];
   try {
     const userKey = `pulsepeak_weight_${userEmail}`;
     const raw = localStorage.getItem(userKey);
     if (raw) return JSON.parse(raw);
   } catch {}
-  return [];
+  const w = profileWeight || 70;
+  return [{ day: "Mon", weight: w }, { day: "Today", weight: w }];
 }
 
 export function saveWeightHistory(newWeight: number, userEmail?: string) {
   if (typeof window === "undefined" || !userEmail) return;
   try {
     const userKey = `pulsepeak_weight_${userEmail}`;
-    let current = getWeightHistory(userEmail);
+    let current = getWeightHistory(userEmail, newWeight);
     const todayStr = new Date().toLocaleDateString("en-US", { weekday: "short" });
-    if (current.length === 0) {
+    if (current.length === 0 || current[0].day === "Mon") {
       current = [{ day: todayStr, weight: newWeight }];
     } else if (current[current.length - 1].day === todayStr) {
       current[current.length - 1].weight = newWeight;
