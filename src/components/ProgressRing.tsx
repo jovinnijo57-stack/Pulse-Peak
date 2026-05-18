@@ -34,7 +34,7 @@ export function ProgressRing({ value, max, size = 180, stroke = 14, label, sub, 
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
         {label && <div className="font-display text-4xl font-bold tracking-tight">{label}</div>}
-        {sub && <div className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">{sub}</div>}
+        {sub && <div className="mt-1 text-xs uppercase tracking-widest text-primary-foreground/80 font-medium">{sub}</div>}
       </div>
     </div>
   );

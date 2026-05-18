@@ -51,6 +51,25 @@ export const WEIGHT_HISTORY = [
   { day: "Sun", weight: 77.1 },
 ];
 
+export function getWeightHistory() {
+  if (typeof window === "undefined") return WEIGHT_HISTORY;
+  try {
+    const raw = localStorage.getItem("pulsepeak_weight_history");
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return WEIGHT_HISTORY;
+}
+
+export function saveWeightHistory(newWeight: number) {
+  if (typeof window === "undefined") return;
+  const current = getWeightHistory();
+  const updated = [...current];
+  updated[updated.length - 1] = { ...updated[updated.length - 1], weight: newWeight };
+  try {
+    localStorage.setItem("pulsepeak_weight_history", JSON.stringify(updated));
+  } catch {}
+}
+
 export const CALORIE_HISTORY = [
   { day: "Mon", eaten: 2100, burned: 420 },
   { day: "Tue", eaten: 1980, burned: 380 },
@@ -60,6 +79,24 @@ export const CALORIE_HISTORY = [
   { day: "Sat", eaten: 2310, burned: 620 },
   { day: "Sun", eaten: 1920, burned: 350 },
 ];
+
+export function getCalorieHistory(currentEaten?: number, currentBurned?: number) {
+  if (typeof window === "undefined") return CALORIE_HISTORY;
+  try {
+    const raw = localStorage.getItem("pulsepeak_calorie_history");
+    let history = raw ? JSON.parse(raw) : [...CALORIE_HISTORY];
+    if (currentEaten !== undefined && currentBurned !== undefined) {
+      history[history.length - 1] = {
+        ...history[history.length - 1],
+        eaten: currentEaten,
+        burned: currentBurned,
+      };
+      localStorage.setItem("pulsepeak_calorie_history", JSON.stringify(history));
+    }
+    return history;
+  } catch {}
+  return CALORIE_HISTORY;
+}
 
 // BMR (Mifflin-St Jeor)
 export function calcBMR(weight: number, height: number, age: number, gender: "male" | "female") {

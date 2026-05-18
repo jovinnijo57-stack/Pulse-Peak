@@ -3,6 +3,7 @@ import { PhoneShell, ScreenHeader } from "@/components/PhoneShell";
 import { useStore } from "@/lib/store";
 import { ChevronRight, Moon, Sun, Bell, LogOut, Crown, Shield, BarChart3, Sparkles, Edit3 } from "lucide-react";
 import { useState } from "react";
+import { saveWeightHistory } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({ meta: [{ title: "Profile — PulsePeak" }] }),
@@ -49,6 +50,7 @@ function Profile() {
       workoutType: editForm.workoutType,
     };
     setProfile(updatedProfile as any);
+    saveWeightHistory(Number(editForm.weightKg));
     setIsEditing(false);
   };
 
@@ -109,7 +111,7 @@ function Profile() {
           <p className="font-display text-lg font-bold">{userName}</p>
           <p className="text-xs text-primary-foreground/80 mt-0.5">{currentUser.email || "user@example.com"}</p>
           {currentUser.phone && <p className="text-xs text-primary-foreground/70 mt-0.5">{currentUser.phone}</p>}
-          <p className="text-xs text-gold font-medium mt-1 capitalize">{profile.goal} weight · {profile.weightKg}kg · {profile.heightCm}cm</p>
+          <p className="text-xs text-gold font-medium mt-1">{profile.weightKg}kg · {profile.heightCm}cm</p>
         </div>
       </div>
 
@@ -138,9 +140,8 @@ function Profile() {
       <div className="mx-5 mt-4 overflow-hidden rounded-3xl border border-border bg-card shadow-card">
         <Row icon={<Sparkles className="h-4 w-4" />} label="AI nutrition coach" to="/ai" />
         <Row icon={<BarChart3 className="h-4 w-4" />} label="Progress & reports" to="/progress" />
-        <Row icon={<Bell className="h-4 w-4" />} label="Reminders" />
-        <Row icon={state.theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />} label={`Switch to ${state.theme === "dark" ? "light" : "dark"} mode`} onClick={toggleTheme} />
-        <Row icon={<Shield className="h-4 w-4" />} label="Admin dashboard" to="/admin" />
+        <Row icon={<Bell className="h-4 w-4 text-primary" />} label="Reminders" />
+        <Row icon={state.theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4 text-primary" />} label={`Switch to ${state.theme === "dark" ? "light" : "dark"} mode`} onClick={toggleTheme} />
       </div>
 
       <button onClick={() => nav({ to: "/" })} className="mx-5 mt-4 flex w-[calc(100%-2.5rem)] items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 py-3.5 text-sm font-semibold text-destructive mb-10">

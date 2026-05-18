@@ -1,23 +1,79 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PhoneShell, ScreenHeader } from "@/components/PhoneShell";
-import { CALORIE_HISTORY, WEIGHT_HISTORY } from "@/lib/mock-data";
+import { getCalorieHistory, getWeightHistory } from "@/lib/mock-data";
+import { useTotals } from "@/lib/store";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, BarChart, Bar, CartesianGrid } from "recharts";
+import { useState } from "react";
+import { clsx } from "clsx";
 
 export const Route = createFileRoute("/progress")({
-  head: () => ({ meta: [{ title: "Progress — FitCal AI" }] }),
+  head: () => ({ meta: [{ title: "Progress — PulsePeak" }] }),
   component: Progress,
 });
 
+const MONTHLY_WEIGHT = [
+  { day: "Wk 1", weight: 78.5 },
+  { day: "Wk 2", weight: 78.1 },
+  { day: "Wk 3", weight: 77.6 },
+  { day: "Wk 4", weight: 77.1 },
+];
+
+const MONTHLY_CALORIE = [
+  { day: "Wk 1", eaten: 2150, burned: 450 },
+  { day: "Wk 2", eaten: 2020, burned: 410 },
+  { day: "Wk 3", eaten: 1980, burned: 480 },
+  { day: "Wk 4", eaten: 2090, burned: 520 },
+];
+
 function Progress() {
+  const [tab, setTab] = useState<"weekly" | "monthly">("weekly");
+  const totals = useTotals();
+
+  const weightHistory = getWeightHistory();
+  const calorieHistory = getCalorieHistory(totals.eaten.kcal, totals.burned);
+
+  const activeWeightData = tab === "weekly" ? weightHistory : MONTHLY_WEIGHT;
+  const activeCalorieData = tab === "weekly" ? calorieHistory : MONTHLY_CALORIE;
+
+  const avgKcal = tab === "weekly" 
+    ? Math.round(calorieHistory.reduce((a, c) => a + c.eaten, 0) / calorieHistory.length)
+    : Math.round(MONTHLY_CALORIE.reduce((a, c) => a + c.eaten, 0) / MONTHLY_CALORIE.length);
+
+  const lostWeight = tab === "weekly"
+    ? ((weightHistory[0]?.weight || 78.2) - (weightHistory.at(-1)?.weight || 77.1)).toFixed(1)
+    : ((MONTHLY_WEIGHT[0]?.weight || 78.5) - (MONTHLY_WEIGHT.at(-1)?.weight || 77.1)).toFixed(1);
+
   return (
     <PhoneShell>
       <ScreenHeader title="Progress" subtitle="Weekly & monthly insights" />
 
-      <div className="mx-5 grid grid-cols-3 gap-3">
+      {/* Tabs */}
+      <div className="mx-5 mb-4 flex rounded-2xl bg-muted p-1.5 shadow-inner">
+        <button
+          onClick={() => setTab("weekly")}
+          className={clsx(
+            "flex-1 rounded-xl py-2.5 font-display text-sm font-semibold transition-all duration-300",
+            tab === "weekly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Weekly
+        </button>
+        <button
+          onClick={() => setTab("monthly")}
+          className={clsx(
+            "flex-1 rounded-xl py-2.5 font-display text-sm font-semibold transition-all duration-300",
+            tab === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          Monthly
+        </button>
+      </div>
+
+      <div className="mx-5 grid grid-cols-3 gap-3 animate-in fade-in duration-300">
         {[
-          { l: "Avg kcal", v: "2,065" },
-          { l: "Streak", v: "12 days" },
-          { l: "Lost", v: "-1.1 kg" },
+          { l: "Avg kcal", v: `${avgKcal}` },
+          { l: tab === "weekly" ? "Streak" : "Active Days", v: tab === "weekly" ? "12 days" : "26 days" },
+          { l: "Lost", v: `-${lostWeight} kg` },
         ].map((s) => (
           <div key={s.l} className="rounded-2xl border border-border bg-gradient-card p-3 shadow-card">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{s.l}</p>
@@ -26,36 +82,38 @@ function Progress() {
         ))}
       </div>
 
-      <Card title="Weight trend" sub="Last 7 days">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={WEIGHT_HISTORY} margin={{ left: -10, right: 8, top: 8, bottom: 0 }}>
-            <defs>
-              <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.5} />
-                <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={10} tick={{ fill: "var(--color-muted-foreground)" }} />
-            <YAxis domain={["dataMin - 0.5", "dataMax + 0.5"]} axisLine={false} tickLine={false} fontSize={10} tick={{ fill: "var(--color-muted-foreground)" }} />
-            <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12 }} />
-            <Area type="monotone" dataKey="weight" stroke="var(--color-primary)" strokeWidth={3} fill="url(#g1)" />
-          </AreaChart>
-        </ResponsiveContainer>
-      </Card>
+      <div className="pb-20 space-y-4 animate-in fade-in duration-500">
+        <Card title="Weight trend" sub={tab === "weekly" ? "Last 7 days" : "Last 4 weeks"}>
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={activeWeightData} margin={{ left: -10, right: 8, top: 8, bottom: 0 }}>
+              <defs>
+                <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.5} />
+                  <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={10} tick={{ fill: "var(--color-muted-foreground)" }} />
+              <YAxis domain={["dataMin - 0.5", "dataMax + 0.5"]} axisLine={false} tickLine={false} fontSize={10} tick={{ fill: "var(--color-muted-foreground)" }} />
+              <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12 }} />
+              <Area type="monotone" dataKey="weight" stroke="var(--color-primary)" strokeWidth={3} fill="url(#g1)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </Card>
 
-      <Card title="Calories in vs out" sub="Weekly">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={CALORIE_HISTORY} margin={{ left: -10, right: 8, top: 8, bottom: 0 }}>
-            <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={10} tick={{ fill: "var(--color-muted-foreground)" }} />
-            <YAxis axisLine={false} tickLine={false} fontSize={10} tick={{ fill: "var(--color-muted-foreground)" }} />
-            <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12 }} />
-            <Bar dataKey="eaten" fill="var(--color-primary)" radius={[6, 6, 0, 0]} />
-            <Bar dataKey="burned" fill="var(--color-gold)" radius={[6, 6, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </Card>
+        <Card title="Calories in vs out" sub={tab === "weekly" ? "Weekly average" : "Monthly average"}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={activeCalorieData} margin={{ left: -10, right: 8, top: 8, bottom: 0 }}>
+              <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={10} tick={{ fill: "var(--color-muted-foreground)" }} />
+              <YAxis axisLine={false} tickLine={false} fontSize={10} tick={{ fill: "var(--color-muted-foreground)" }} />
+              <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12 }} />
+              <Bar dataKey="eaten" fill="var(--color-primary)" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="burned" fill="var(--color-gold)" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
     </PhoneShell>
   );
 }

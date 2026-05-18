@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { Bell, Droplet, Flame, TrendingDown, Activity, Plus, Sparkles } from "lucide-react";
+import { Bell, Droplet, Flame, TrendingDown, Activity, Sparkles } from "lucide-react";
 import { PhoneShell, ScreenHeader } from "@/components/PhoneShell";
 import { ProgressRing, MacroBar } from "@/components/ProgressRing";
 import { useStore, useTotals } from "@/lib/store";
-import { CALORIE_HISTORY, WEIGHT_HISTORY } from "@/lib/mock-data";
+import { getCalorieHistory, getWeightHistory } from "@/lib/mock-data";
 import { LineChart, Line, ResponsiveContainer, BarChart, Bar, XAxis, Tooltip } from "recharts";
 
 export const Route = createFileRoute("/dashboard")({
@@ -18,6 +18,10 @@ function Dashboard() {
   const { profile } = state;
   const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
   const userName = currentUser.name || profile.name || "User";
+
+  const weightHistory = getWeightHistory();
+  const calorieHistory = getCalorieHistory(totals.eaten.kcal, totals.burned);
+  const latestWeight = weightHistory.at(-1)?.weight || profile.weightKg;
 
   return (
     <PhoneShell>
@@ -80,10 +84,10 @@ function Dashboard() {
 
       {/* Water + AI tile */}
       <div className="mx-5 mt-4 grid grid-cols-2 gap-3">
-        <div className="rounded-3xl border border-border bg-gradient-card p-4 shadow-card">
+        <Link to="/water" className="block rounded-3xl border border-border bg-gradient-card p-4 shadow-card hover:border-primary/50 transition relative group">
           <div className="flex items-center justify-between">
             <Droplet className="h-5 w-5" style={{ color: "var(--color-water)" }} />
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Water</span>
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground group-hover:text-primary transition">Track Water →</span>
           </div>
           <p className="mt-3 font-display text-2xl font-bold">
             {(state.waterMl / 1000).toFixed(1)}
@@ -94,12 +98,20 @@ function Dashboard() {
           </div>
           <div className="mt-3 flex gap-1.5">
             {[250, 500].map((ml) => (
-              <button key={ml} onClick={() => addWater(ml)} className="flex-1 rounded-xl bg-muted py-1.5 text-xs font-semibold">
+              <button
+                key={ml}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  addWater(ml);
+                }}
+                className="flex-1 rounded-xl bg-muted py-1.5 text-xs font-semibold hover:bg-primary/20 hover:text-primary transition"
+              >
                 +{ml}ml
               </button>
             ))}
           </div>
-        </div>
+        </Link>
 
         <Link to="/ai" className="group relative overflow-hidden rounded-3xl bg-gradient-gold p-4 text-gold-foreground shadow-card">
           <Sparkles className="h-5 w-5" />
@@ -116,13 +128,13 @@ function Dashboard() {
         <div className="mb-3 flex items-center justify-between">
           <div>
             <p className="text-xs uppercase tracking-widest text-muted-foreground">Weight trend</p>
-            <p className="font-display text-2xl font-bold">{WEIGHT_HISTORY.at(-1)?.weight} kg</p>
+            <p className="font-display text-2xl font-bold">{latestWeight} kg</p>
           </div>
           <span className="rounded-full bg-success/15 px-2.5 py-1 text-xs font-semibold text-success">-1.1 kg</span>
         </div>
         <div className="h-28">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={WEIGHT_HISTORY} margin={{ left: -20, right: 6, top: 6, bottom: 0 }}>
+            <LineChart data={weightHistory} margin={{ left: -20, right: 6, top: 6, bottom: 0 }}>
               <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={10} tick={{ fill: "var(--color-muted-foreground)" }} />
               <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12 }} />
               <Line type="monotone" dataKey="weight" stroke="var(--color-primary)" strokeWidth={3} dot={{ r: 3, fill: "var(--color-primary)" }} />
@@ -142,7 +154,7 @@ function Dashboard() {
         </div>
         <div className="h-32">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={CALORIE_HISTORY} margin={{ left: -20, right: 6, top: 6, bottom: 0 }}>
+            <BarChart data={calorieHistory} margin={{ left: -20, right: 6, top: 6, bottom: 0 }}>
               <XAxis dataKey="day" axisLine={false} tickLine={false} fontSize={10} tick={{ fill: "var(--color-muted-foreground)" }} />
               <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 12 }} />
               <Bar dataKey="eaten" fill="var(--color-primary)" radius={[6, 6, 0, 0]} />
