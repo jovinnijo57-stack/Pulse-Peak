@@ -190,9 +190,9 @@ function Dashboard() {
 
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="flex items-center gap-2 text-primary-foreground/80">{icon}{label}</span>
-      <span className="font-display font-semibold">{value}</span>
+    <div className="flex items-center justify-between gap-1 flex-nowrap overflow-hidden">
+      <span className="flex items-center gap-1.5 text-primary-foreground/85 text-xs sm:text-sm whitespace-nowrap shrink-0">{icon}{label}</span>
+      <span className="font-display font-semibold text-xs sm:text-sm whitespace-nowrap shrink-0 text-right">{value}</span>
     </div>
   );
 }
