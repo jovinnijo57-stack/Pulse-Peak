@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { PhoneShell, ScreenHeader } from "@/components/PhoneShell";
 import { useStore, useTotals, type MealType } from "@/lib/store";
-import { ChevronRight, Plus, Trash2 } from "lucide-react";
+import { ChevronRight, Plus, Trash2, Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/diary")({
-  head: () => ({ meta: [{ title: "Food Diary — FitCal AI" }] }),
+  head: () => ({ meta: [{ title: "Food Diary — PulsePeak" }] }),
   component: Diary,
 });
 
@@ -14,6 +14,7 @@ const ICONS: Record<MealType, string> = { Breakfast: "🥣", Lunch: "🥗", Dinn
 function Diary() {
   const { state, removeMeal } = useStore();
   const totals = useTotals();
+  const { profile } = state;
 
   return (
     <PhoneShell>
@@ -29,7 +30,7 @@ function Diary() {
         </div>
       </div>
 
-      <div className="mt-4 space-y-3 px-5">
+      <div className="mt-4 space-y-3 px-5 pb-20">
         {MEALS.map((meal) => {
           const items = state.meals.filter((m) => m.meal === meal);
           const kcal = items.reduce((a, m) => a + m.food.kcal * m.servings, 0);
@@ -66,13 +67,42 @@ function Diary() {
           );
         })}
 
-        <Link to="/recipes" className="flex items-center justify-between rounded-3xl border border-border bg-card px-4 py-4 shadow-card">
-          <div>
-            <p className="font-display font-semibold">Recipes & meal planner</p>
-            <p className="text-xs text-muted-foreground">Build, save and plan your week</p>
+        {/* AI Personalized Strategy placed directly under Snacks */}
+        {profile?.aiPlan && (
+          <div className="mt-4 rounded-3xl border border-gold/30 bg-gradient-card p-5 shadow-glow relative overflow-hidden animate-in fade-in duration-500">
+            <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-gold/10 blur-2xl" />
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-2 rounded-xl bg-gradient-gold text-gold-foreground shadow-glow">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <h2 className="font-display text-base font-bold bg-gradient-to-r from-gold to-primary font-semibold bg-clip-text text-transparent">AI Personalized Strategy</h2>
+            </div>
+            <p className="text-sm text-foreground leading-relaxed mb-4 font-medium">{profile.aiPlan.summary}</p>
+            
+            <div className="space-y-3 border-t border-border/60 pt-4 mt-2">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-gold font-semibold mb-1">Nutrition Strategy ({profile.diet || "Omnivore"})</p>
+                <p className="text-xs text-muted-foreground leading-normal">{profile.aiPlan.nutritionStrategy}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wider text-gold font-semibold mb-1">Workout Recommendation ({profile.workoutType || "Strength training"})</p>
+                <p className="text-xs text-muted-foreground leading-normal">{profile.aiPlan.workoutRecommendation}</p>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-border/60">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">Daily Milestones</p>
+              <div className="grid grid-cols-1 gap-2">
+                {profile.aiPlan.dailyMilestones?.map((milestone: string, idx: number) => (
+                  <div key={idx} className="flex items-center gap-2 text-xs bg-muted/40 border border-border/60 rounded-xl p-2.5 backdrop-blur-sm">
+                    <div className="h-4 w-4 rounded-full bg-gold/20 text-gold flex items-center justify-center font-bold text-[10px]">{idx + 1}</div>
+                    <span className="text-foreground font-medium">{milestone}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        </Link>
+        )}
       </div>
     </PhoneShell>
   );

@@ -8,7 +8,7 @@ import { CALORIE_HISTORY, WEIGHT_HISTORY } from "@/lib/mock-data";
 import { LineChart, Line, ResponsiveContainer, BarChart, Bar, XAxis, Tooltip } from "recharts";
 
 export const Route = createFileRoute("/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — FitCal AI" }] }),
+  head: () => ({ meta: [{ title: "Dashboard — PulsePeak" }] }),
   component: Dashboard,
 });
 
@@ -16,11 +16,13 @@ function Dashboard() {
   const { state, addWater } = useStore();
   const totals = useTotals();
   const { profile } = state;
+  const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+  const userName = currentUser.name || profile.name || "User";
 
   return (
     <PhoneShell>
       <ScreenHeader
-        title={`Hey ${profile.name.split(" ")[0]} 👋`}
+        title={`Hey ${userName.split(" ")[0]} 👋`}
         subtitle="Let's crush today's goals."
         action={
           <Link to="/profile" className="grid h-10 w-10 place-items-center rounded-2xl border border-border bg-card">
@@ -149,10 +151,6 @@ function Dashboard() {
           </ResponsiveContainer>
         </div>
       </div>
-
-      <Link to="/add" className="fixed bottom-24 right-4 z-30 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-hero text-primary-foreground shadow-glow md:hidden">
-        <Plus className="h-5 w-5" />
-      </Link>
     </PhoneShell>
   );
 }

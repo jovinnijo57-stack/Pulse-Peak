@@ -1,29 +1,115 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { PhoneShell, ScreenHeader } from "@/components/PhoneShell";
 import { useStore } from "@/lib/store";
-import { ChevronRight, Moon, Sun, Bell, LogOut, Crown, Shield, BarChart3, Sparkles } from "lucide-react";
+import { ChevronRight, Moon, Sun, Bell, LogOut, Crown, Shield, BarChart3, Sparkles, Edit3 } from "lucide-react";
+import { useState } from "react";
 
 export const Route = createFileRoute("/profile")({
-  head: () => ({ meta: [{ title: "Profile — FitCal AI" }] }),
+  head: () => ({ meta: [{ title: "Profile — PulsePeak" }] }),
   component: Profile,
 });
 
 function Profile() {
-  const { state, toggleTheme } = useStore();
+  const { state, setProfile, toggleTheme } = useStore();
   const nav = useNavigate();
   const { profile } = state;
+  const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+  const userName = currentUser.name || profile.name || "User";
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: userName,
+    phone: currentUser.phone || "",
+    age: profile.age || 28,
+    heightCm: profile.heightCm || 178,
+    weightKg: profile.weightKg || 77,
+    diet: profile.diet || "Omnivore",
+    workoutType: profile.workoutType || "Strength training",
+  });
+
+  const handleSave = () => {
+    const updatedUser = {
+      ...currentUser,
+      name: editForm.name,
+      phone: editForm.phone,
+    };
+    localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+
+    const users = JSON.parse(localStorage.getItem("users") || "[]");
+    const updatedUsers = users.map((u: any) => u.email === currentUser.email ? updatedUser : u);
+    localStorage.setItem("users", JSON.stringify(updatedUsers));
+
+    const updatedProfile = {
+      ...profile,
+      name: editForm.name,
+      age: Number(editForm.age),
+      heightCm: Number(editForm.heightCm),
+      weightKg: Number(editForm.weightKg),
+      diet: editForm.diet,
+      workoutType: editForm.workoutType,
+    };
+    setProfile(updatedProfile as any);
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <PhoneShell>
+        <ScreenHeader title="Edit Profile" subtitle="Update your registered details" />
+        <div className="mx-5 mt-4 space-y-4 pb-20 animate-in fade-in duration-300">
+          <label className="block space-y-1.5">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Full Name</span>
+            <input type="text" value={editForm.name} onChange={(e) => setEditForm({...editForm, name: e.target.value})} className="w-full rounded-2xl border border-border bg-card p-4 font-display text-base outline-none focus:border-primary shadow-sm" />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Phone Number</span>
+            <input type="text" value={editForm.phone} onChange={(e) => setEditForm({...editForm, phone: e.target.value})} className="w-full rounded-2xl border border-border bg-card p-4 font-display text-base outline-none focus:border-primary shadow-sm" />
+          </label>
+          <div className="grid grid-cols-3 gap-3">
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Age (yrs)</span>
+              <input type="number" value={editForm.age} onChange={(e) => setEditForm({...editForm, age: +e.target.value})} className="w-full rounded-2xl border border-border bg-card p-4 font-display text-base outline-none focus:border-primary text-center shadow-sm" />
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Height (cm)</span>
+              <input type="number" value={editForm.heightCm} onChange={(e) => setEditForm({...editForm, heightCm: +e.target.value})} className="w-full rounded-2xl border border-border bg-card p-4 font-display text-base outline-none focus:border-primary text-center shadow-sm" />
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Weight (kg)</span>
+              <input type="number" value={editForm.weightKg} onChange={(e) => setEditForm({...editForm, weightKg: +e.target.value})} className="w-full rounded-2xl border border-border bg-card p-4 font-display text-base outline-none focus:border-primary text-center shadow-sm" />
+            </label>
+          </div>
+          <div className="flex gap-3 pt-4">
+            <button onClick={() => setIsEditing(false)} className="flex-1 rounded-2xl border border-border bg-card py-4 font-display font-medium active:scale-[0.98] transition">Cancel</button>
+            <button onClick={handleSave} className="flex-[2] rounded-2xl bg-gradient-hero py-4 font-display font-semibold text-primary-foreground shadow-glow active:scale-[0.98] transition">Save Changes</button>
+          </div>
+        </div>
+      </PhoneShell>
+    );
+  }
 
   return (
     <PhoneShell>
-      <ScreenHeader title="Profile" subtitle="Settings & preferences" />
+      <ScreenHeader
+        title="Profile"
+        subtitle="Settings & preferences"
+        action={
+          <button onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 rounded-2xl border border-border bg-card px-3.5 py-2 text-xs font-semibold shadow-sm hover:bg-muted/50 transition">
+            <Edit3 className="h-3.5 w-3.5" /> Edit
+          </button>
+        }
+      />
 
-      <div className="mx-5 flex items-center gap-4 rounded-3xl bg-gradient-hero p-5 text-primary-foreground shadow-glow">
-        <div className="grid h-16 w-16 place-items-center rounded-2xl bg-white/15 font-display text-2xl font-bold backdrop-blur">
-          {profile.name.charAt(0)}
+      <div className="mx-5 flex items-center gap-4 rounded-3xl bg-gradient-hero p-5 text-primary-foreground shadow-glow relative overflow-hidden">
+        <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-gold/20 blur-2xl" />
+        <div className="grid h-16 w-16 place-items-center rounded-2xl bg-white/15 font-display text-2xl font-bold backdrop-blur shadow-inner">
+          {userName.charAt(0)}
         </div>
         <div className="flex-1">
-          <p className="font-display text-lg font-bold">{profile.name}</p>
-          <p className="text-xs text-primary-foreground/70 capitalize">{profile.goal} weight · {profile.weightKg}kg · {profile.heightCm}cm</p>
+          <p className="font-display text-lg font-bold">{userName}</p>
+          <p className="text-xs text-primary-foreground/80 mt-0.5">{currentUser.email || "user@example.com"}</p>
+          {currentUser.phone && <p className="text-xs text-primary-foreground/70 mt-0.5">{currentUser.phone}</p>}
+          <p className="text-xs text-gold font-medium mt-1 capitalize">{profile.goal} weight · {profile.weightKg}kg · {profile.heightCm}cm</p>
         </div>
       </div>
 
@@ -57,7 +143,7 @@ function Profile() {
         <Row icon={<Shield className="h-4 w-4" />} label="Admin dashboard" to="/admin" />
       </div>
 
-      <button onClick={() => nav({ to: "/" })} className="mx-5 mt-4 flex w-[calc(100%-2.5rem)] items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 py-3.5 text-sm font-semibold text-destructive">
+      <button onClick={() => nav({ to: "/" })} className="mx-5 mt-4 flex w-[calc(100%-2.5rem)] items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 py-3.5 text-sm font-semibold text-destructive mb-10">
         <LogOut className="h-4 w-4" /> Sign out
       </button>
     </PhoneShell>

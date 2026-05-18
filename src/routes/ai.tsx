@@ -1,13 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PhoneShell, ScreenHeader } from "@/components/PhoneShell";
 import { useState, useRef, useEffect } from "react";
-import { Sparkles, Send, Loader2, ChevronDown, Check } from "lucide-react";
+import { Sparkles, Send, Loader2, ChevronDown, Check, Mic, MicOff } from "lucide-react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import Groq from "groq-sdk";
 import Markdown from "markdown-to-jsx";
 import { clsx } from "clsx";
 
-// Initialize APIs using environment variables
+// Initialize APIs using environment variables (with fallback to provided keys for testing)
 const geminiAi = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "");
 const groq = new Groq({ apiKey: import.meta.env.VITE_GROQ_API_KEY || "", dangerouslyAllowBrowser: true });
 
@@ -32,17 +32,63 @@ const MarkdownOptions = {
     code: { component: 'code', props: { className: 'bg-black/10 dark:bg-white/10 rounded px-1.5 py-0.5 text-xs font-mono' } },
     pre: { component: 'pre', props: { className: 'bg-black/10 dark:bg-white/10 rounded-xl p-3 overflow-x-auto text-xs font-mono mb-2 shadow-inner' } }
   }
-};
-
-function AIChat() {
+};function AIChat() {
   const [messages, setMessages] = useState<Message[]>([
     { role: "model", content: "Hi there! I'm your FitCal AI Coach. How can I help you reach your fitness and nutrition goals today?", id: "welcome" }
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [modelType, setModelType] = useState<"gemini" | "groq">("gemini");
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  
+  // Speech Recognition setup
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      // Setting continuous and interimResults to false improves mobile browser compatibility and reliability
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        if (transcript) {
+          setInput(prev => prev + (prev ? " " : "") + transcript);
+        }
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error("Speech recognition error", event.error);
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+    }
+  }, []);
+
+  const toggleListen = () => {
+    if (!recognitionRef.current) {
+      alert("Voice search is not fully supported in this browser. Please try Chrome, Edge, or Safari.");
+      return;
+    }
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognitionRef.current?.start();
+        setIsListening(true);
+      } catch (e) {
+        console.error(e);
+        setIsListening(false);
+      }
+    }
+  };
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -51,39 +97,64 @@ function AIChat() {
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
     
-    const userMsg: Message = { role: "user", content: input, id: Date.now().toString() };
+    const userText = input.trim();
+    const userMsg: Message = { role: "user", content: userText, id: Date.now().toString() };
     setMessages(prev => [...prev, userMsg]);
     setInput("");
     setIsLoading(true);
 
     try {
-      let responseText = "";
+      const history = messages.filter(m => m.id !== "welcome");
 
-      if (modelType === "gemini") {
+      // 1. Gemini Promise
+      const geminiPromise = (async () => {
         const model = geminiAi.getGenerativeModel({ model: "gemini-1.5-flash" });
-        const chatHistory = messages.map(m => ({
+        const chatHistory = history.map(m => ({
           role: m.role === "model" ? "model" : "user",
           parts: [{ text: m.content }]
         }));
         const chat = model.startChat({ history: chatHistory });
-        const result = await chat.sendMessage(userMsg.content);
-        responseText = result.response.text();
-      } else {
-        const groqHistory = messages.map(m => ({
+        const result = await chat.sendMessage(userText);
+        return result.response.text();
+      })();
+
+      // 2. Groq Promise (using active llama-3.3-70b-versatile model)
+      const groqPromise = (async () => {
+        const groqHistory = history.map(m => ({
           role: m.role === "model" ? "assistant" as const : "user" as const,
           content: m.content
         }));
         const completion = await groq.chat.completions.create({
-          messages: [...groqHistory, { role: "user", content: userMsg.content }],
-          model: "llama3-8b-8192",
+          messages: [
+            { role: "system", content: "You are FitCal AI Coach. Provide helpful fitness and nutrition advice." },
+            ...groqHistory,
+            { role: "user", content: userText }
+          ],
+          model: "llama-3.3-70b-versatile",
         });
-        responseText = completion.choices[0]?.message?.content || "I couldn't process that.";
+        return completion.choices[0]?.message?.content || "";
+      })();
+
+      // Run both APIs simultaneously
+      const [geminiRes, groqRes] = await Promise.allSettled([geminiPromise, groqPromise]);
+
+      let combinedResponse = "";
+      if (geminiRes.status === "fulfilled" && groqRes.status === "fulfilled") {
+        combinedResponse = `### 🌟 Gemini AI Coach\n${geminiRes.value}\n\n---\n\n### ⚡ Groq LLaMA-3 Coach\n${groqRes.value}`;
+      } else if (geminiRes.status === "fulfilled") {
+        combinedResponse = geminiRes.value;
+      } else if (groqRes.status === "fulfilled") {
+        combinedResponse = groqRes.value;
+      } else {
+        const geminiErr = geminiRes.status === "rejected" ? geminiRes.reason?.message : "Unknown";
+        const groqErr = groqRes.status === "rejected" ? groqRes.reason?.message : "Unknown";
+        throw new Error(`Gemini: ${geminiErr} | Groq: ${groqErr}`);
       }
 
-      setMessages(prev => [...prev, { role: "model", content: responseText, id: (Date.now() + 1).toString() }]);
+      setMessages(prev => [...prev, { role: "model", content: combinedResponse, id: (Date.now() + 1).toString() }]);
     } catch (error: any) {
-      console.error(error);
-      setMessages(prev => [...prev, { role: "model", content: `Oops, something went wrong: ${error.message}`, id: (Date.now() + 1).toString() }]);
+      console.error("AI Error:", error);
+      setMessages(prev => [...prev, { role: "model", content: `Oops, something went wrong connecting to the AI: ${error.message}`, id: (Date.now() + 1).toString() }]);
     } finally {
       setIsLoading(false);
     }
@@ -92,34 +163,6 @@ function AIChat() {
   return (
     <PhoneShell>
       <ScreenHeader title="AI Coach" subtitle="Ask me anything!" />
-
-      <div className="mx-5 mb-3 relative z-20 flex items-center justify-between">
-         <div className="relative">
-            <button 
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center gap-2 rounded-full border border-border bg-card/80 backdrop-blur-md px-3.5 py-1.5 text-xs font-semibold shadow-sm transition-all hover:bg-muted"
-            >
-              {modelType === "gemini" ? "Gemini 1.5 Flash" : "Groq LLaMA 3"}
-              <ChevronDown className={clsx("h-3.5 w-3.5 transition-transform duration-200", isDropdownOpen && "rotate-180")} />
-            </button>
-            {isDropdownOpen && (
-              <div className="absolute left-0 mt-2 w-48 rounded-2xl border border-border bg-card/95 backdrop-blur-xl p-1.5 shadow-xl animate-in fade-in slide-in-from-top-2">
-                <button
-                  onClick={() => { setModelType("gemini"); setIsDropdownOpen(false); }}
-                  className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-medium hover:bg-primary/10 hover:text-primary transition-colors"
-                >
-                  Gemini 1.5 Flash {modelType === "gemini" && <Check className="h-4 w-4 text-primary" />}
-                </button>
-                <button
-                  onClick={() => { setModelType("groq"); setIsDropdownOpen(false); }}
-                  className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-medium hover:bg-primary/10 hover:text-primary transition-colors mt-0.5"
-                >
-                  Groq LLaMA 3 {modelType === "groq" && <Check className="h-4 w-4 text-primary" />}
-                </button>
-              </div>
-            )}
-         </div>
-      </div>
 
       <div className="flex-1 overflow-y-auto px-5 pb-28 pt-2 scrollbar-hide relative z-10">
         <div className="flex flex-col gap-5">
@@ -160,11 +203,22 @@ function AIChat() {
         </div>
       </div>
 
-      <div className="absolute bottom-16 left-0 w-full px-5 pb-4 pt-4 z-20">
+      <div className="fixed bottom-16 left-0 right-0 mx-auto w-full max-w-md px-5 pb-4 pt-4 z-20">
         {/* Glow effect behind input */}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/90 to-transparent pointer-events-none" />
         
         <div className="relative flex items-end gap-2">
+          <div className="absolute bottom-2 left-2 flex items-center z-10">
+            <button
+              onClick={toggleListen}
+              className={clsx(
+                "flex h-[40px] w-[40px] items-center justify-center rounded-full transition-all active:scale-95",
+                isListening ? "bg-red-500/10 text-red-500 animate-pulse" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {isListening ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+            </button>
+          </div>
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -174,17 +228,22 @@ function AIChat() {
                 handleSend();
               }
             }}
-            placeholder="Ask your AI coach..."
-            className="max-h-32 min-h-[56px] w-full resize-none rounded-[28px] border border-border bg-card/95 backdrop-blur-md pl-5 pr-14 pt-4 text-[15px] shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/50 scrollbar-hide"
+            placeholder={isListening ? "Listening..." : "Ask your AI coach..."}
+            className={clsx(
+              "max-h-32 min-h-[56px] w-full resize-none rounded-[28px] border bg-card/95 backdrop-blur-md pl-12 pr-14 pt-4 text-[15px] shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/50 scrollbar-hide",
+              isListening ? "border-primary/50" : "border-border"
+            )}
             rows={1}
           />
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || isLoading}
-            className="absolute bottom-2 right-2 flex h-[40px] w-[40px] items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
-          >
-            {isLoading ? <Loader2 className="h-4.5 w-4.5 animate-spin" /> : <Send className="h-4.5 w-4.5 ml-0.5" />}
-          </button>
+          <div className="absolute bottom-2 right-2 flex items-center gap-1 z-10">
+            <button
+              onClick={handleSend}
+              disabled={!input.trim() || isLoading}
+              className="flex h-[40px] w-[40px] items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
+            >
+              {isLoading ? <Loader2 className="h-4.5 w-4.5 animate-spin" /> : <Send className="h-4.5 w-4.5 ml-0.5" />}
+            </button>
+          </div>
         </div>
       </div>
     </PhoneShell>

@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useStore, type Profile } from "@/lib/store";
 import { calcBMR, calcTDEE, goalAdjust } from "@/lib/mock-data";
+import { Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/onboarding")({ component: Onboarding });
 
@@ -9,29 +10,119 @@ function Onboarding() {
   const { setProfile } = useStore();
   const nav = useNavigate();
   const [step, setStep] = useState(0);
-  const [data, setData] = useState<Partial<Profile>>({
+  const [analyzing, setAnalyzing] = useState(false);
+  const [data, setData] = useState<any>({
     gender: "male", age: 28, heightCm: 178, weightKg: 77, goal: "lose", activity: 1.55,
+    diet: "Omnivore", workoutType: "Strength training", sleepHours: 8, waterGoalL: 3, targetWeightKg: 70
   });
 
-  const totalSteps = 4;
+  const totalSteps = 7;
 
-  const finish = () => {
+  const finish = async () => {
+    setAnalyzing(true);
     const bmr = calcBMR(data.weightKg!, data.heightCm!, data.age!, data.gender!);
     const tdee = calcTDEE(bmr, data.activity!);
     const calorieGoal = goalAdjust(tdee, data.goal!);
-    setProfile({
-      ...data,
+
+    const prompt = `As an elite AI Nutrition & Fitness Coach, analyze the following user profile and provide a customized 3-point plan.
+User Profile:
+- Age: ${data.age}, Gender: ${data.gender}, Height: ${data.heightCm}cm, Current Weight: ${data.weightKg}kg, Target Weight: ${data.targetWeightKg}kg
+- Primary Goal: ${data.goal}, Activity Level: ${data.activity}
+- Diet Preference: ${data.diet}, Workout Style: ${data.workoutType}
+- Daily Sleep Goal: ${data.sleepHours} hours, Daily Water Goal: ${data.waterGoalL}L
+- Calculated TDEE: ${tdee} kcal, Recommended Daily Calorie Target: ${calorieGoal} kcal
+
+Provide a JSON response with exactly this structure:
+{
+  "summary": "A motivating 2-sentence overview of their fitness journey.",
+  "nutritionStrategy": "Specific dietary advice based on their diet preference.",
+  "workoutRecommendation": "Specific weekly workout routine tailored to their workout style.",
+  "dailyMilestones": ["Milestone 1", "Milestone 2", "Milestone 3"]
+}`;
+
+    let aiPlan = {
+      summary: `Awesome job taking the first step! Based on your goal to ${data.goal} weight with a ${data.diet} diet and ${data.workoutType}, we've crafted your perfect macro split.`,
+      nutritionStrategy: `Focus on high-quality protein sources and maintain a daily intake around ${calorieGoal} kcal to hit your ${data.targetWeightKg}kg goal sustainably.`,
+      workoutRecommendation: `Incorporate 3-4 sessions of ${data.workoutType} per week, ensuring you get ${data.sleepHours} hours of sleep for optimal recovery.`,
+      dailyMilestones: [`Drink ${data.waterGoalL}L of water`, `Hit ${calorieGoal} kcal target`, `Get ${data.sleepHours}h of quality sleep`]
+    };
+
+    try {
+      const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      const groqKey = import.meta.env.VITE_GROQ_API_KEY;
+
+      if (geminiKey) {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json" }
+          })
+        });
+        const json = await res.json();
+        const text = json.candidates[0].content.parts[0].text;
+        aiPlan = JSON.parse(text);
+      } else if (groqKey) {
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${groqKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [{ role: "user", content: prompt }],
+            response_format: { type: "json_object" }
+          })
+        });
+        const json = await res.json();
+        aiPlan = JSON.parse(json.choices[0].message.content);
+      }
+    } catch (err) {
+      console.error("AI onboarding analysis fallback to default plan:", err);
+    }
+
+    const updatedProfile = {
+      ...data, profile: { name: "FitCal User" },
       calorieGoal,
       proteinGoal: Math.round((calorieGoal * 0.3) / 4),
       carbsGoal: Math.round((calorieGoal * 0.4) / 4),
       fatsGoal: Math.round((calorieGoal * 0.3) / 9),
-    } as Profile);
+      waterGoalMl: data.waterGoalL * 1000,
+      aiPlan
+    };
+
+    setProfile(updatedProfile as any);
+
+    const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+    const updatedUser = { ...currentUser, onboardingComplete: true, profile: updatedProfile };
+    localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+
+    const users = JSON.parse(localStorage.getItem("users") || "[]");
+    const updatedUsers = users.map((u: any) => u.email === currentUser.email ? updatedUser : u);
+    localStorage.setItem("users", JSON.stringify(updatedUsers));
+
+    setAnalyzing(false);
     nav({ to: "/dashboard" });
   };
 
   return (
-    <div className="min-h-dvh bg-background">
-      <div className="mx-auto w-full max-w-md px-6 pt-8">
+    <div className="min-h-dvh bg-background relative">
+      {analyzing && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-md z-50 flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="bg-gradient-card border border-border rounded-3xl p-8 max-w-sm w-full text-center shadow-glow flex flex-col items-center animate-in zoom-in-95 duration-300">
+            <div className="relative h-20 w-20 mb-6">
+              <div className="absolute inset-0 rounded-full border-4 border-gold/30 animate-ping" />
+              <div className="absolute inset-0 rounded-full border-4 border-gold border-t-transparent animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center text-gold">
+                <Sparkles className="h-8 w-8 animate-pulse" />
+              </div>
+            </div>
+            <h3 className="font-display text-2xl font-bold bg-gradient-to-r from-gold to-primary-foreground bg-clip-text text-transparent">AI Coach Analyzing...</h3>
+            <p className="text-sm text-muted-foreground mt-3">Synthesizing your goals, dietary preferences, and habits into a personalized master plan.</p>
+          </div>
+        </div>
+      )}
+
+      <div className="mx-auto w-full max-w-md px-6 pt-8 pb-32">
         <div className="flex gap-1.5">
           {Array.from({ length: totalSteps }).map((_, i) => (
             <div key={i} className={`h-1.5 flex-1 rounded-full ${i <= step ? "bg-primary" : "bg-muted"}`} />
@@ -96,19 +187,66 @@ function Onboarding() {
               </div>
             </Step>
           )}
+          {step === 4 && (
+            <Step title="Dietary Preference" subtitle="How do you prefer to eat?">
+              <div className="space-y-2">
+                {([
+                  { v: "Omnivore", t: "Omnivore", d: "Eat everything (Meat, Veggies, Dairy)" },
+                  { v: "Vegetarian", t: "Vegetarian", d: "Plant-based + Dairy & Eggs" },
+                  { v: "Vegan", t: "Vegan", d: "100% Plant-based only" },
+                  { v: "Keto", t: "Keto", d: "Very low carb, high fat" },
+                  { v: "Paleo", t: "Paleo", d: "Whole foods, no grains/dairy" },
+                ] as const).map((o) => (
+                  <button key={o.v} onClick={() => setData({ ...data, diet: o.v })}
+                    className={`w-full rounded-2xl border p-4 text-left ${data.diet === o.v ? "border-primary bg-primary/5 ring-2 ring-primary" : "border-border bg-card"}`}>
+                    <div className="font-display font-semibold">{o.t}</div>
+                    <div className="text-xs text-muted-foreground">{o.d}</div>
+                  </button>
+                ))}
+              </div>
+            </Step>
+          )}
+          {step === 5 && (
+            <Step title="Workout Style" subtitle="What is your primary training type?">
+              <div className="space-y-2">
+                {([
+                  { v: "Strength training", t: "Strength Training", d: "Lifting weights, bodybuilding, powerlifting" },
+                  { v: "Cardio & Running", t: "Cardio & Running", d: "Running, cycling, swimming, HIIT" },
+                  { v: "Yoga & Pilates", t: "Yoga & Pilates", d: "Flexibility, core strength, low impact" },
+                  { v: "Mixed & Calisthenics", t: "Mixed & Calisthenics", d: "Bodyweight mastery + cross-training" },
+                  { v: "None", t: "None", d: "Focusing purely on diet for now" },
+                ] as const).map((o) => (
+                  <button key={o.v} onClick={() => setData({ ...data, workoutType: o.v })}
+                    className={`w-full rounded-2xl border p-4 text-left ${data.workoutType === o.v ? "border-primary bg-primary/5 ring-2 ring-primary" : "border-border bg-card"}`}>
+                    <div className="font-display font-semibold">{o.t}</div>
+                    <div className="text-xs text-muted-foreground">{o.d}</div>
+                  </button>
+                ))}
+              </div>
+            </Step>
+          )}
+          {step === 6 && (
+            <Step title="Daily Targets & Habits" subtitle="Setting your lifestyle benchmarks.">
+              <div className="space-y-4">
+                <NumberField label="Target Weight" value={data.targetWeightKg!} onChange={(v) => setData({ ...data, targetWeightKg: v })} suffix="kg" />
+                <NumberField label="Sleep Goal" value={data.sleepHours!} onChange={(v) => setData({ ...data, sleepHours: v })} suffix="hrs" />
+                <NumberField label="Water Goal" value={data.waterGoalL!} onChange={(v) => setData({ ...data, waterGoalL: v })} suffix="L" />
+              </div>
+            </Step>
+          )}
         </div>
 
-        <div className="fixed inset-x-0 bottom-0 mx-auto flex max-w-md gap-3 px-6 pb-8 pt-4">
+        <div className="fixed inset-x-0 bottom-0 mx-auto flex max-w-md gap-3 px-6 pb-8 pt-4 bg-background/80 backdrop-blur-md border-t border-border/40">
           {step > 0 && (
-            <button onClick={() => setStep(step - 1)} className="flex-1 rounded-2xl border border-border bg-card py-4 font-display font-medium">
+            <button onClick={() => setStep(step - 1)} className="flex-1 rounded-2xl border border-border bg-card py-4 font-display font-medium active:scale-[0.98] transition">
               Back
             </button>
           )}
           <button
             onClick={() => (step === totalSteps - 1 ? finish() : setStep(step + 1))}
-            className="flex-[2] rounded-2xl bg-gradient-hero py-4 font-display font-semibold text-primary-foreground shadow-glow"
+            className="flex-[2] rounded-2xl bg-gradient-hero py-4 font-display font-semibold text-primary-foreground shadow-glow active:scale-[0.98] transition"
           >
-            {step === totalSteps - 1 ? "Build my plan" : "Continue"}
+            {step === totalSteps - 1 ? "Analyze with AI Coach" : "Continue"}
           </button>
         </div>
       </div>
@@ -128,8 +266,8 @@ function Step({ title, subtitle, children }: { title: string; subtitle: string; 
 
 function NumberField({ label, value, onChange, suffix }: { label: string; value: number; onChange: (v: number) => void; suffix: string }) {
   return (
-    <label className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3.5">
-      <span className="text-sm text-muted-foreground">{label}</span>
+    <label className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3.5 shadow-sm">
+      <span className="text-sm text-muted-foreground font-medium">{label}</span>
       <span className="flex items-baseline gap-1">
         <input type="number" value={value} onChange={(e) => onChange(+e.target.value)} className="w-20 bg-transparent text-right font-display text-xl font-semibold outline-none" />
         <span className="text-sm text-muted-foreground">{suffix}</span>

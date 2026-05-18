@@ -27,7 +27,7 @@ function Scan() {
   return (
     <div className="min-h-dvh bg-foreground text-primary-foreground">
       <div className="mx-auto w-full max-w-md px-5 pt-6">
-        <Link to="/add" className="inline-flex items-center gap-1 text-sm text-primary-foreground/80">
+        <Link to="/add" search={{ meal: "Snacks" }} className="inline-flex items-center gap-1 text-sm text-primary-foreground/80">
           <ArrowLeft className="h-4 w-4" /> Cancel
         </Link>
 
@@ -67,7 +67,7 @@ function Scan() {
           ) : (
             <p className="text-center text-sm text-primary-foreground/70">Scanning...</p>
           )}
-          <Link to="/add" className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 py-3.5 text-sm font-semibold">
+          <Link to="/add" search={{ meal: "Snacks" }} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 py-3.5 text-sm font-semibold">
             <Pencil className="h-4 w-4" /> Enter manually
           </Link>
         </div>
