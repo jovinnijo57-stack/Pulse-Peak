@@ -40,12 +40,14 @@ function Profile() {
   }, [profile.name]);
 
   const handleSave = async () => {
+    let userId = "";
     try {
       await supabase.auth.updateUser({
         data: { full_name: editForm.name, phone: editForm.phone }
       });
       const { data } = await supabase.auth.getUser();
       if (data?.user) {
+        userId = data.user.id;
         await supabase.from("profiles").update({
           name: editForm.name,
           weight_kg: Number(editForm.weightKg),
@@ -63,7 +65,7 @@ function Profile() {
       workoutType: editForm.workoutType,
     };
     setProfile(updatedProfile as any);
-    saveWeightHistory(Number(editForm.weightKg));
+    saveWeightHistory(Number(editForm.weightKg), profile.email || userMeta.email, userId);
     setUserMeta(prev => ({ ...prev, name: editForm.name, phone: editForm.phone }));
     setIsEditing(false);
   };

@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useStore, type Profile } from "@/lib/store";
-import { calcBMR, calcTDEE, goalAdjust } from "@/lib/mock-data";
+import { calcBMR, calcTDEE, goalAdjust, saveWeightHistory } from "@/lib/mock-data";
 import { Sparkles, Phone } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -172,6 +172,8 @@ Provide a JSON response with exactly this structure:
           weight_kg: data.weightKg,
           ai_plan: aiPlan,
         });
+
+        saveWeightHistory(data.weightKg, authData.user?.email, userId);
       }
     } catch (err) { console.error("Supabase profile save error:", err); }
 

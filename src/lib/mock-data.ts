@@ -1,3 +1,5 @@
+import { supabase } from "./supabase";
+
 // Sample data for PulsePeak MVP (no backend yet)
 export type Food = {
   id: string;
@@ -181,9 +183,9 @@ export const EXERCISES: Exercise[] = [
 export const WEIGHT_HISTORY: { day: string; weight: number }[] = [];
 
 export function getWeightHistory(userEmail?: string, profileWeight?: number) {
-  if (typeof window === "undefined" || !userEmail) return [];
+  if (typeof window === "undefined") return [];
+  const userKey = `pulsepeak_weight_${userEmail || 'default'}`;
   try {
-    const userKey = `pulsepeak_weight_${userEmail}`;
     const raw = localStorage.getItem(userKey);
     if (raw) return JSON.parse(raw);
   } catch {}
@@ -191,10 +193,10 @@ export function getWeightHistory(userEmail?: string, profileWeight?: number) {
   return [{ day: "Mon", weight: w }, { day: "Today", weight: w }];
 }
 
-export function saveWeightHistory(newWeight: number, userEmail?: string) {
-  if (typeof window === "undefined" || !userEmail) return;
+export function saveWeightHistory(newWeight: number, userEmail?: string, userId?: string) {
+  if (typeof window === "undefined") return;
+  const userKey = `pulsepeak_weight_${userEmail || 'default'}`;
   try {
-    const userKey = `pulsepeak_weight_${userEmail}`;
     let current = getWeightHistory(userEmail, newWeight);
     const todayStr = new Date().toLocaleDateString("en-US", { weekday: "short" });
     if (current.length === 0 || current[0].day === "Mon") {
@@ -205,15 +207,25 @@ export function saveWeightHistory(newWeight: number, userEmail?: string) {
       current.push({ day: todayStr, weight: newWeight });
     }
     localStorage.setItem(userKey, JSON.stringify(current));
+
+    // Save to Supabase PostgreSQL table
+    if (userId) {
+      const todayIso = new Date().toISOString().split('T')[0];
+      supabase.from("weight_logs").upsert({
+        user_id: userId,
+        weight_kg: newWeight,
+        logged_date: todayIso
+      }, { onConflict: "user_id,logged_date" }).then();
+    }
   } catch {}
 }
 
 export const CALORIE_HISTORY: { day: string; eaten: number; burned: number }[] = [];
 
 export function getCalorieHistory(currentEaten?: number, currentBurned?: number, userEmail?: string) {
-  if (typeof window === "undefined" || !userEmail) return [];
+  if (typeof window === "undefined") return [];
+  const userKey = `pulsepeak_calorie_${userEmail || 'default'}`;
   try {
-    const userKey = `pulsepeak_calorie_${userEmail}`;
     const raw = localStorage.getItem(userKey);
     let history = raw ? JSON.parse(raw) : [];
     const todayStr = new Date().toLocaleDateString("en-US", { weekday: "short" });
@@ -225,9 +237,12 @@ export function getCalorieHistory(currentEaten?: number, currentBurned?: number,
       } else { history.push({ day: todayStr, eaten: currentEaten, burned: currentBurned }); }
       localStorage.setItem(userKey, JSON.stringify(history));
     }
+    if (history.length === 0) {
+      return [{ day: "Mon", eaten: 2100, burned: 400 }, { day: "Today", eaten: currentEaten || 2100, burned: currentBurned || 400 }];
+    }
     return history;
   } catch {}
-  return [];
+  return [{ day: "Mon", eaten: 2100, burned: 400 }, { day: "Today", eaten: currentEaten || 2100, burned: currentBurned || 400 }];
 }
 
 // BMR (Mifflin-St Jeor)
