@@ -232,6 +232,15 @@ function Recipes() {
     toast.success("Removed meal from planner.");
   };
 
+  // Clear all planned recipes
+  const handleClearAllPlans = () => {
+    if (window.confirm("Are you sure you want to clear all scheduled meals?")) {
+      setMealPlans([]);
+      localStorage.setItem(`nexgro_meal_plans_${userId}`, JSON.stringify([]));
+      toast.success("Successfully cleared all planned meals.");
+    }
+  };
+
   // Add ingredients to shopping cart
   const handleAddToCart = (recipe: Recipe) => {
     const existingCart = localStorage.getItem(`nexgro_grocery_cart_${userId}`);
@@ -408,24 +417,34 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
             <Calendar className="h-4 w-4 text-emerald-500" />
             <p className="font-display text-sm font-semibold">Weekly Schedule</p>
           </div>
-          <div className="relative">
-            <button 
-              onClick={() => setShowDatePicker(!showDatePicker)}
-              className="rounded-xl bg-primary/10 border border-primary/20 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/20 transition"
-            >
-              Pick Date
-            </button>
-            {showDatePicker && (
-              <input 
-                type="date"
-                value={selectedDate}
-                onChange={(e) => {
-                  handleDateChange(e.target.value);
-                  setShowDatePicker(false);
-                }}
-                className="absolute right-0 top-8 z-10 rounded-xl border border-border bg-card p-2 text-xs shadow-glow focus:outline-none"
-              />
+          <div className="flex items-center gap-2">
+            {plannedCount > 0 && (
+              <button 
+                onClick={handleClearAllPlans}
+                className="rounded-xl bg-destructive/10 border border-destructive/20 px-3 py-1 text-xs font-semibold text-destructive hover:bg-destructive/20 transition active:scale-95"
+              >
+                Clear All
+              </button>
             )}
+            <div className="relative">
+              <button 
+                onClick={() => setShowDatePicker(!showDatePicker)}
+                className="rounded-xl bg-primary/10 border border-primary/20 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/20 transition"
+              >
+                Pick Date
+              </button>
+              {showDatePicker && (
+                <input 
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => {
+                    handleDateChange(e.target.value);
+                    setShowDatePicker(false);
+                  }}
+                  className="absolute right-0 top-8 z-10 rounded-xl border border-border bg-card p-2 text-xs shadow-glow focus:outline-none"
+                />
+              )}
+            </div>
           </div>
         </div>
 
