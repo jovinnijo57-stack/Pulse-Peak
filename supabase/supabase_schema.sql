@@ -22,6 +22,11 @@ create table if not exists public.profiles (
 -- Enable RLS
 alter table public.profiles enable row level security;
 
+-- Drop existing policies if they exist to avoid creation errors
+drop policy if exists "Users can view own profile" on public.profiles;
+drop policy if exists "Users can update own profile" on public.profiles;
+drop policy if exists "Users can insert own profile" on public.profiles;
+
 create policy "Users can view own profile" on public.profiles
   for select using (auth.uid() = id);
 
@@ -52,6 +57,11 @@ create table if not exists public.meal_logs (
 -- Enable RLS
 alter table public.meal_logs enable row level security;
 
+-- Drop existing policies if they exist to avoid creation errors
+drop policy if exists "Users can view own meals" on public.meal_logs;
+drop policy if exists "Users can insert own meals" on public.meal_logs;
+drop policy if exists "Users can delete own meals" on public.meal_logs;
+
 create policy "Users can view own meals" on public.meal_logs
   for select using (auth.uid() = user_id);
 
@@ -76,6 +86,11 @@ create table if not exists public.exercise_logs (
 -- Enable RLS
 alter table public.exercise_logs enable row level security;
 
+-- Drop existing policies if they exist to avoid creation errors
+drop policy if exists "Users can view own exercises" on public.exercise_logs;
+drop policy if exists "Users can insert own exercises" on public.exercise_logs;
+drop policy if exists "Users can delete own exercises" on public.exercise_logs;
+
 create policy "Users can view own exercises" on public.exercise_logs
   for select using (auth.uid() = user_id);
 
@@ -99,6 +114,10 @@ create table if not exists public.water_logs (
 -- Enable RLS
 alter table public.water_logs enable row level security;
 
+-- Drop existing policies if they exist to avoid creation errors
+drop policy if exists "Users can view own water" on public.water_logs;
+drop policy if exists "Users can insert or update own water" on public.water_logs;
+
 create policy "Users can view own water" on public.water_logs
   for select using (auth.uid() = user_id);
 
@@ -118,6 +137,10 @@ create table if not exists public.weight_logs (
 
 -- Enable RLS
 alter table public.weight_logs enable row level security;
+
+-- Drop existing policies if they exist to avoid creation errors
+drop policy if exists "Users can view own weights" on public.weight_logs;
+drop policy if exists "Users can insert or update own weights" on public.weight_logs;
 
 create policy "Users can view own weights" on public.weight_logs
   for select using (auth.uid() = user_id);
