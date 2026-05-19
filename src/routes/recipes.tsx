@@ -31,6 +31,8 @@ function RecipesPage() {
 
   // Tab State
   const [activeTab, setActiveTab] = useState<"corner" | "planner">("corner");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Search & Voice Recognition
   const [searchQuery, setSearchQuery] = useState("");
@@ -120,10 +122,15 @@ function RecipesPage() {
   };
 
   // Filter Recipes
-  const filteredRecipes = recipes.filter(r => 
-    r.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    r.category.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredRecipes = recipes.filter(r => {
+    const matchesSearch = r.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          r.category.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === "All" || 
+                            r.category.toLowerCase() === selectedCategory.toLowerCase() ||
+                            (selectedCategory === "Indian Favorites" && r.category.toLowerCase() === "indian") ||
+                            (selectedCategory === "Global Favorites" && !["indian"].includes(r.category.toLowerCase()));
+    return matchesSearch && matchesCategory;
+  });
 
   // Helper for meal plan filtering
   const dailyPlans = mealPlans.filter(p => p.plannedDate === selectedDate);
@@ -313,13 +320,19 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
 
   return (
     <PhoneShell>
-      <ScreenHeader title="Chef's Corner" subtitle="Plan delicious, macro-balanced meals" />
+      <ScreenHeader 
+        title={activeTab === "corner" ? "Chef's Corner" : "Meal Planner"} 
+        subtitle="Plan delicious, macro-balanced meals" 
+      />
 
       {/* Tabs Switcher */}
       <div className="mx-5 mt-4 grid grid-cols-2 gap-1 rounded-2xl bg-muted p-1 border border-border/80">
         <button
-          onClick={() => setActiveTab("corner")}
-          className={`py-2 rounded-xl text-xs font-bold transition duration-200 ${
+          onClick={() => {
+            setActiveTab("corner");
+            setSelectedCategory("All");
+          }}
+          className={`py-2 rounded-xl text-xs font-bold transition duration-200 active:scale-95 ${
             activeTab === "corner"
               ? "bg-[#007000] text-white shadow-sm"
               : "text-muted-foreground hover:text-foreground"
@@ -329,7 +342,7 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
         </button>
         <button
           onClick={() => setActiveTab("planner")}
-          className={`py-2 rounded-xl text-xs font-bold transition duration-200 ${
+          className={`py-2 rounded-xl text-xs font-bold transition duration-200 active:scale-95 ${
             activeTab === "planner"
               ? "bg-[#007000] text-white shadow-sm"
               : "text-muted-foreground hover:text-foreground"
@@ -345,34 +358,17 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
         {/* Tab 1: Chef's Corner (Recipes Database) */}
         {activeTab === "corner" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                <span>Browse Recipes</span>
-                <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full font-bold">
-                  {filteredRecipes.length} Total
-                </span>
-              </h2>
-              
-              {/* Add Custom Recipe floating style trigger */}
-              <button 
-                onClick={() => setShowAddRecipeModal(true)}
-                className="flex items-center gap-1 text-[11px] font-bold text-white bg-[#007000] hover:opacity-90 active:scale-95 px-3 py-1.5 rounded-full transition shadow-md"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>Create Recipe</span>
-              </button>
-            </div>
-
-            {/* Interactive Search & Speech Recognition */}
+            
+            {/* Search Bar & Voice Control */}
             <div className="relative flex items-center gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Search recipes, categories..."
+                  placeholder="Search recipes or categories..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-10 py-3 rounded-2xl border border-border bg-card text-xs focus:border-[#007000] focus:outline-none transition shadow-sm text-foreground"
+                  className="w-full pl-10 pr-10 py-3 rounded-full border border-border bg-card text-xs focus:border-[#007000] focus:outline-none transition shadow-sm text-foreground"
                 />
                 {searchQuery && (
                   <button 
@@ -385,7 +381,7 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
               </div>
               <button
                 onClick={handleVoiceSearch}
-                className={`p-3 rounded-2xl border transition active:scale-95 ${
+                className={`p-3 rounded-full border transition active:scale-95 ${
                   isListening 
                     ? "bg-red-500/10 border-red-500/30 text-red-500 animate-pulse" 
                     : "bg-card border-border hover:bg-muted text-muted-foreground"
@@ -393,6 +389,41 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
                 title="Voice Search"
               >
                 {isListening ? <MicOff className="h-4.5 w-4.5" /> : <Mic className="h-4.5 w-4.5" />}
+              </button>
+            </div>
+
+            {/* Category Pills */}
+            <div className="flex gap-1.5 overflow-x-auto pb-1 mt-1 scrollbar-none">
+              {["All", "Breakfast", "Lunch", "Dinner", "Indian Favorites"].map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold border transition duration-200 active:scale-95 ${
+                    selectedCategory === cat 
+                      ? "bg-[#007000] text-white border-[#007000]" 
+                      : "bg-card border-border hover:bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            {/* Catalog Info & Add Action */}
+            <div className="flex items-center justify-between pt-1">
+              <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                <span>Chef's Corner</span>
+                <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full font-bold">
+                  {filteredRecipes.length} recipes found
+                </span>
+              </h2>
+              
+              <button 
+                onClick={() => setShowAddRecipeModal(true)}
+                className="flex items-center gap-1 text-[10px] font-bold text-white bg-[#007000] hover:opacity-90 active:scale-95 px-3 py-1.5 rounded-full transition shadow-md"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Create Recipe</span>
               </button>
             </div>
 
@@ -406,19 +437,17 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
                 No recipes matching your query.
               </div>
             ) : (
-              <div className="grid gap-3.5">
+              <div className="grid grid-cols-2 gap-3.5">
                 {filteredRecipes.map((recipe) => (
                   <div 
                     key={recipe.id}
-                    className="group rounded-3xl border border-border bg-gradient-card overflow-hidden shadow-card hover:border-[#007000]/40 transition duration-300 relative"
+                    onClick={() => {
+                      setSelectedRecipe(recipe);
+                      setAiAnalysis(STATIC_AI_ANALYSIS[recipe.id] || null);
+                    }}
+                    className="group rounded-3xl border border-border bg-card overflow-hidden shadow-card hover:border-[#007000]/40 transition duration-300 relative flex flex-col cursor-pointer"
                   >
-                    <div 
-                      onClick={() => {
-                        setSelectedRecipe(recipe);
-                        setAiAnalysis(STATIC_AI_ANALYSIS[recipe.id] || null);
-                      }}
-                      className="aspect-video w-full overflow-hidden bg-muted relative cursor-pointer"
-                    >
+                    <div className="relative aspect-[4/3.2] overflow-hidden bg-muted">
                       <img 
                         src={recipe.image} 
                         alt={recipe.title} 
@@ -427,107 +456,82 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
                           e.currentTarget.src = "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop&q=60";
                         }}
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                      <div className="absolute bottom-3.5 left-4 right-4">
-                        <span className="text-[9px] uppercase tracking-wider bg-[#007000] text-white px-2 py-0.5 rounded-md font-bold">
-                          {recipe.category}
-                        </span>
-                        <h3 className="font-display text-base font-extrabold text-white mt-1 capitalize leading-tight">
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                      
+                      {/* Category Badge */}
+                      <span className="absolute top-2.5 left-2.5 bg-black/60 text-white font-bold text-[8px] px-2 py-0.5 rounded-md uppercase tracking-wider">
+                        {recipe.category}
+                      </span>
+                      
+                      {/* Schedule Button */}
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowScheduleDropdownId(showScheduleDropdownId === recipe.id ? null : recipe.id);
+                        }}
+                        className="absolute top-2.5 right-2.5 bg-black/60 p-1.5 rounded-full text-white hover:bg-[#007000] hover:scale-105 active:scale-95 transition shadow-md z-10"
+                        title="Schedule Meal"
+                      >
+                        <Calendar className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="p-3 flex flex-col justify-between flex-1 space-y-1.5">
+                      <div>
+                        <h4 className="font-display text-xs font-bold text-foreground capitalize leading-snug line-clamp-1">
                           {recipe.title}
-                        </h3>
+                        </h4>
+                        <p className="text-[9px] text-muted-foreground mt-0.5 font-semibold">
+                          {recipe.calories} · {recipe.time}
+                        </p>
+                      </div>
+                      
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[8px] bg-emerald-500/10 text-emerald-600 font-bold px-1.5 py-0.5 rounded-md">
+                          {recipe.ingredients.length} Items
+                        </span>
                       </div>
                     </div>
 
-                    <div className="p-4 space-y-3.5">
-                      {/* Cooking Stats Row */}
-                      <div className="flex items-center justify-between text-[11px] text-muted-foreground font-semibold border-b border-border/50 pb-2.5">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3.5 w-3.5 text-[#007000]" />
-                          <span>{recipe.time}</span>
-                        </div>
-                        <div>·</div>
-                        <div>{recipe.serves} serves</div>
-                        <div>·</div>
-                        <div className="text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-md font-bold">
-                          {recipe.calories}
-                        </div>
-                      </div>
-
-                      {/* Macros Row */}
-                      <div className="grid grid-cols-3 gap-2 text-center text-[10px] bg-muted/40 p-2 rounded-xl">
-                        <div>
-                          <p className="text-muted-foreground font-semibold">Protein</p>
-                          <p className="font-bold text-[#007000] mt-0.5">{recipe.protein}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground font-semibold">Fats</p>
-                          <p className="font-bold text-amber-500 mt-0.5">{recipe.fat}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground font-semibold">Carbs</p>
-                          <p className="font-bold text-foreground mt-0.5">{recipe.carbs}</p>
-                        </div>
-                      </div>
-
-                      {/* Action buttons */}
-                      <div className="flex items-center gap-2 pt-1">
-                        <div className="relative flex-1">
-                          <button
-                            onClick={() => setShowScheduleDropdownId(showScheduleDropdownId === recipe.id ? null : recipe.id)}
-                            className="w-full py-2.5 rounded-xl border border-border hover:border-[#007000]/40 text-xs font-bold text-foreground flex items-center justify-center gap-1.5 transition active:scale-95 bg-card"
-                          >
-                            <Calendar className="h-3.5 w-3.5 text-[#007000]" />
-                            <span>Schedule Meal</span>
-                          </button>
-
-                          {/* Quick Calendar Dropdown */}
-                          {showScheduleDropdownId === recipe.id && (
-                            <div className="absolute left-0 right-0 bottom-full mb-2 z-20 bg-card border border-border shadow-glow rounded-2xl p-2.5 flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-150">
-                              <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold px-1.5">Select date:</p>
-                              <input 
-                                type="date" 
-                                value={selectedDate}
-                                onChange={async (e) => {
-                                  setSelectedDate(e.target.value);
-                                  setShowScheduleDropdownId(null);
-                                  await addMealPlanMutation.mutateAsync({ recipeId: recipe.id, dateStr: e.target.value });
-                                }}
-                                className="w-full text-xs bg-muted border border-border rounded-xl px-2 py-1.5 text-foreground focus:outline-none focus:border-[#007000]"
-                              />
-                              <div className="grid grid-cols-2 gap-1 mt-1 border-t border-border/50 pt-1.5">
-                                <button
-                                  onClick={async () => {
-                                    setShowScheduleDropdownId(null);
-                                    const todayStr = new Date().toISOString().split("T")[0];
-                                    await addMealPlanMutation.mutateAsync({ recipeId: recipe.id, dateStr: todayStr });
-                                  }}
-                                  className="py-1 text-[10px] font-bold text-white bg-[#007000] rounded-lg active:scale-95 transition"
-                                >
-                                  Today
-                                </button>
-                                <button
-                                  onClick={() => setShowScheduleDropdownId(null)}
-                                  className="py-1 text-[10px] font-bold text-muted-foreground bg-muted rounded-lg active:scale-95 transition"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        <button
-                          onClick={() => {
-                            setSelectedRecipe(recipe);
-                            handleAiAnalysis(recipe);
+                    {/* Schedule Date Dropdown overlay inside Card */}
+                    {showScheduleDropdownId === recipe.id && (
+                      <div 
+                        className="absolute inset-x-2 bottom-2 z-20 bg-card border border-border shadow-glow rounded-2xl p-2.5 flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-150"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-bold px-1">Select date:</p>
+                        <input 
+                          type="date" 
+                          value={selectedDate}
+                          onChange={async (e) => {
+                            setSelectedDate(e.target.value);
+                            setShowScheduleDropdownId(null);
+                            await addMealPlanMutation.mutateAsync({ recipeId: recipe.id, dateStr: e.target.value });
+                            toast.success(`Scheduled ${recipe.title}! 📅`);
                           }}
-                          className="px-3.5 py-2.5 rounded-xl bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 active:scale-95 transition"
-                          title="Analyze Prep with AI"
-                        >
-                          <Sparkles className="h-4 w-4" />
-                        </button>
+                          className="w-full text-[10px] bg-muted border border-border rounded-lg px-2 py-1 text-foreground focus:outline-none focus:border-[#007000]"
+                        />
+                        <div className="grid grid-cols-2 gap-1 mt-1 border-t border-border/50 pt-1">
+                          <button
+                            onClick={async () => {
+                              setShowScheduleDropdownId(null);
+                              const todayStr = new Date().toISOString().split("T")[0];
+                              await addMealPlanMutation.mutateAsync({ recipeId: recipe.id, dateStr: todayStr });
+                              toast.success(`Scheduled ${recipe.title} for Today! 📅`);
+                            }}
+                            className="py-1 text-[9px] font-bold text-white bg-[#007000] rounded-md active:scale-95 transition"
+                          >
+                            Today
+                          </button>
+                          <button
+                            onClick={() => setShowScheduleDropdownId(null)}
+                            className="py-1 text-[9px] font-bold text-muted-foreground bg-muted rounded-md active:scale-95 transition"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 ))}
               </div>
