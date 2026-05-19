@@ -108,6 +108,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               carbsGoal: profileData.carbs_goal || loaded.profile.carbsGoal,
               fatsGoal: profileData.fats_goal || loaded.profile.fatsGoal,
               weightKg: profileData.weight_kg || loaded.profile.weightKg,
+              heightCm: profileData.height_cm || loaded.profile.heightCm,
               aiPlan: profileData.ai_plan || loaded.profile.aiPlan,
             };
           } else {
@@ -198,6 +199,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               carbs_goal: updatedProfile.carbsGoal,
               fats_goal: updatedProfile.fatsGoal,
               weight_kg: updatedProfile.weightKg,
+              height_cm: updatedProfile.heightCm,
               ai_plan: updatedProfile.aiPlan,
             }).then();
           }

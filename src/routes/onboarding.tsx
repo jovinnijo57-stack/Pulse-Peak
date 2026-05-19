@@ -181,6 +181,7 @@ Provide a JSON response with exactly this structure:
           carbs_goal: Math.round((calorieGoal * 0.4) / 4),
           fats_goal: Math.round((calorieGoal * 0.3) / 9),
           weight_kg: data.weightKg,
+          height_cm: data.heightCm,
           ai_plan: aiPlan,
         });
 

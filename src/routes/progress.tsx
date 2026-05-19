@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PhoneShell, ScreenHeader } from "@/components/PhoneShell";
 import { getCalorieHistory, getWeightHistory } from "@/lib/mock-data";
-import { useTotals } from "@/lib/store";
+import { useStore, useTotals } from "@/lib/store";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, BarChart, Bar, CartesianGrid } from "recharts";
 import { useState } from "react";
 import { clsx } from "clsx";
@@ -13,10 +13,11 @@ export const Route = createFileRoute("/progress")({
 
 function Progress() {
   const [tab, setTab] = useState<"weekly" | "monthly">("weekly");
+  const { state } = useStore();
   const totals = useTotals();
 
-  const { profile } = totals.state;
-  const weightHistory = getWeightHistory(profile.email);
+  const { profile } = state;
+  const weightHistory = getWeightHistory(profile.email, profile.weightKg);
   const calorieHistory = getCalorieHistory(totals.eaten.kcal, totals.burned, profile.email);
 
   // Weekly: last 7 days. Monthly: last 30 days.

@@ -32,12 +32,21 @@ function Profile() {
     supabase.auth.getUser().then(({ data }) => {
       if (data?.user) {
         const name = data.user.user_metadata?.full_name || data.user.user_metadata?.name || profile.name || "User";
-        const phone = data.user.user_metadata?.phone || "";
+        const phone = data.user.user_metadata?.phone || profile.phone || "";
         setUserMeta({ email: data.user.email || "", name, phone });
-        setEditForm(prev => ({ ...prev, name, phone }));
+        setEditForm(prev => ({ 
+          ...prev, 
+          name, 
+          phone,
+          age: profile.age || prev.age,
+          heightCm: profile.heightCm || prev.heightCm,
+          weightKg: profile.weightKg || prev.weightKg,
+          diet: profile.diet || prev.diet,
+          workoutType: profile.workoutType || prev.workoutType,
+        }));
       }
     });
-  }, [profile.name]);
+  }, [profile]);
 
   const handleSave = async () => {
     let userId = "";
@@ -51,6 +60,7 @@ function Profile() {
         await supabase.from("profiles").update({
           name: editForm.name,
           weight_kg: Number(editForm.weightKg),
+          height_cm: Number(editForm.heightCm),
         }).eq("id", data.user.id);
       }
     } catch {}
