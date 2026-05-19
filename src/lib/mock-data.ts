@@ -189,8 +189,11 @@ export function getWeightHistory(userEmail?: string, profileWeight?: number) {
     const raw = localStorage.getItem(userKey);
     if (raw) return JSON.parse(raw);
   } catch {}
-  const w = profileWeight || 70;
-  return [{ day: "Mon", weight: w }, { day: "Today", weight: w }];
+  if (profileWeight) {
+    const todayStr = new Date().toLocaleDateString("en-US", { weekday: "short" });
+    return [{ day: todayStr, weight: profileWeight }];
+  }
+  return [];
 }
 
 export function saveWeightHistory(newWeight: number, userEmail?: string, userId?: string) {
@@ -199,7 +202,7 @@ export function saveWeightHistory(newWeight: number, userEmail?: string, userId?
   try {
     let current = getWeightHistory(userEmail, newWeight);
     const todayStr = new Date().toLocaleDateString("en-US", { weekday: "short" });
-    if (current.length === 0 || current[0].day === "Mon") {
+    if (current.length === 0) {
       current = [{ day: todayStr, weight: newWeight }];
     } else if (current[current.length - 1].day === todayStr) {
       current[current.length - 1].weight = newWeight;
@@ -229,20 +232,19 @@ export function getCalorieHistory(currentEaten?: number, currentBurned?: number,
     const raw = localStorage.getItem(userKey);
     let history = raw ? JSON.parse(raw) : [];
     const todayStr = new Date().toLocaleDateString("en-US", { weekday: "short" });
-    if (currentEaten !== undefined && currentBurned !== undefined) {
+    if (currentEaten !== undefined && currentBurned !== undefined && (currentEaten > 0 || currentBurned > 0)) {
       if (history.length === 0) {
         history = [{ day: todayStr, eaten: currentEaten, burned: currentBurned }];
       } else if (history[history.length - 1].day === todayStr) {
         history[history.length - 1] = { day: todayStr, eaten: currentEaten, burned: currentBurned };
-      } else { history.push({ day: todayStr, eaten: currentEaten, burned: currentBurned }); }
+      } else { 
+        history.push({ day: todayStr, eaten: currentEaten, burned: currentBurned }); 
+      }
       localStorage.setItem(userKey, JSON.stringify(history));
-    }
-    if (history.length === 0) {
-      return [{ day: "Mon", eaten: 2100, burned: 400 }, { day: "Today", eaten: currentEaten || 2100, burned: currentBurned || 400 }];
     }
     return history;
   } catch {}
-  return [{ day: "Mon", eaten: 2100, burned: 400 }, { day: "Today", eaten: currentEaten || 2100, burned: currentBurned || 400 }];
+  return [];
 }
 
 // BMR (Mifflin-St Jeor)
