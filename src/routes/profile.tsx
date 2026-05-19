@@ -51,19 +51,24 @@ function Profile() {
   const handleSave = async () => {
     let userId = "";
     try {
-      await supabase.auth.updateUser({
-        data: { full_name: editForm.name, phone: editForm.phone }
-      });
-      const { data } = await supabase.auth.getUser();
-      if (data?.user) {
-        userId = data.user.id;
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData?.user) {
+        userId = userData.user.id;
+        // 1. Update profiles table first
         await supabase.from("profiles").update({
           name: editForm.name,
           weight_kg: Number(editForm.weightKg),
           height_cm: Number(editForm.heightCm),
-        }).eq("id", data.user.id);
+        }).eq("id", userId);
       }
-    } catch {}
+
+      // 2. Then update user auth metadata (which triggers USER_UPDATED and store reloading)
+      await supabase.auth.updateUser({
+        data: { full_name: editForm.name, phone: editForm.phone }
+      });
+    } catch (err) {
+      console.error(err);
+    }
 
     const updatedProfile = {
       ...profile,
@@ -74,6 +79,8 @@ function Profile() {
       diet: editForm.diet,
       workoutType: editForm.workoutType,
     };
+    
+    // 3. Sync local state
     setProfile(updatedProfile as any);
     saveWeightHistory(Number(editForm.weightKg), profile.email || userMeta.email, userId);
     setUserMeta(prev => ({ ...prev, name: editForm.name, phone: editForm.phone }));
@@ -81,6 +88,17 @@ function Profile() {
   };
 
   const handleSignOut = async () => {
+    // Clear user data from local storage on sign out
+    try {
+      const { data } = await supabase.auth.getUser();
+      const userId = data?.user?.id || "guest";
+      localStorage.removeItem(`nexgro_meal_plans_${userId}`);
+      localStorage.removeItem(`nexgro_custom_recipes_${userId}`);
+      localStorage.removeItem(`nexgro_grocery_cart_${userId}`);
+      localStorage.removeItem(`pulsepeak_weight_${profile.email || "default"}`);
+      localStorage.removeItem(`pulsepeak_calorie_${profile.email || "default"}`);
+    } catch {}
+    
     await supabase.auth.signOut();
     nav({ to: "/" });
   };

@@ -33,3 +33,9 @@ README.md
 *.njsproj
 *.sln
 *.sw?
+
+# Heavy exercise media
+exercises/images/
+exercises/videos/
+public/exercises/images/
+public/exercises/videos/

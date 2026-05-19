@@ -50,6 +50,7 @@ const STYLE_BLOCK = `
 `;
 
 function Recipes() {
+  const [userId, setUserId] = useState<string>("guest");
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [mealPlans, setMealPlans] = useState<MealPlanItem[]>([]);
   const [search, setSearch] = useState("");
@@ -87,16 +88,21 @@ function Recipes() {
 
   // Load Initial Data
   useEffect(() => {
-    // 1. Merge default and custom recipes
-    const custom = localStorage.getItem("nexgro_custom_recipes");
-    const parsedCustom: Recipe[] = custom ? JSON.parse(custom) : [];
-    setRecipes([...DEFAULT_RECIPES, ...parsedCustom]);
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data?.user?.id || "guest";
+      setUserId(uid);
 
-    // 2. Load meal plans
-    const plans = localStorage.getItem("nexgro_meal_plans");
-    if (plans) {
-      setMealPlans(JSON.parse(plans));
-    }
+      // 1. Merge default and custom recipes
+      const custom = localStorage.getItem(`nexgro_custom_recipes_${uid}`);
+      const parsedCustom: Recipe[] = custom ? JSON.parse(custom) : [];
+      setRecipes([...DEFAULT_RECIPES, ...parsedCustom]);
+
+      // 2. Load meal plans
+      const plans = localStorage.getItem(`nexgro_meal_plans_${uid}`);
+      if (plans) {
+        setMealPlans(JSON.parse(plans));
+      }
+    });
 
     // 3. Set current week
     updateWeekDays(new Date());
@@ -179,11 +185,11 @@ function Recipes() {
       instructions: cleanedInstructions.length > 0 ? cleanedInstructions : ["Combine ingredients and cook to taste."]
     };
 
-    const custom = localStorage.getItem("nexgro_custom_recipes");
+    const custom = localStorage.getItem(`nexgro_custom_recipes_${userId}`);
     const parsedCustom: Recipe[] = custom ? JSON.parse(custom) : [];
     const updatedCustom = [...parsedCustom, newRecipe];
 
-    localStorage.setItem("nexgro_custom_recipes", JSON.stringify(updatedCustom));
+    localStorage.setItem(`nexgro_custom_recipes_${userId}`, JSON.stringify(updatedCustom));
     setRecipes([...DEFAULT_RECIPES, ...updatedCustom]);
 
     // Reset Form
@@ -213,7 +219,7 @@ function Recipes() {
 
     const updatedPlans = [...mealPlans, newItem];
     setMealPlans(updatedPlans);
-    localStorage.setItem("nexgro_meal_plans", JSON.stringify(updatedPlans));
+    localStorage.setItem(`nexgro_meal_plans_${userId}`, JSON.stringify(updatedPlans));
     toast.success(`Planned "${recipe.title}" for ${targetDate}!`);
     setPlannerOpenRecipeId(null);
   };
@@ -222,13 +228,13 @@ function Recipes() {
   const handleRemovePlan = (planId: string) => {
     const updatedPlans = mealPlans.filter(p => p.id !== planId);
     setMealPlans(updatedPlans);
-    localStorage.setItem("nexgro_meal_plans", JSON.stringify(updatedPlans));
+    localStorage.setItem(`nexgro_meal_plans_${userId}`, JSON.stringify(updatedPlans));
     toast.success("Removed meal from planner.");
   };
 
   // Add ingredients to shopping cart
   const handleAddToCart = (recipe: Recipe) => {
-    const existingCart = localStorage.getItem("nexgro_grocery_cart");
+    const existingCart = localStorage.getItem(`nexgro_grocery_cart_${userId}`);
     const cartItems = existingCart ? JSON.parse(existingCart) : [];
     
     const formattedIngredients = recipe.ingredients.map(ing => ({
@@ -241,7 +247,7 @@ function Recipes() {
     }));
 
     const newCart = [...cartItems, ...formattedIngredients];
-    localStorage.setItem("nexgro_grocery_cart", JSON.stringify(newCart));
+    localStorage.setItem(`nexgro_grocery_cart_${userId}`, JSON.stringify(newCart));
     toast.success(`Added ${recipe.ingredients.length} ingredients from "${recipe.title}" to your Shopping Cart!`);
   };
 
