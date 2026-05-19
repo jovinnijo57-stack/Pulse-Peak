@@ -320,37 +320,63 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
 
   return (
     <PhoneShell>
+      {/* Inline styles for custom animations */}
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .animate-marquee {
+          display: flex;
+          width: max-content;
+          animation: marquee 25s linear infinite;
+        }
+      `}} />
+
       <ScreenHeader 
         title={activeTab === "corner" ? "Chef's Corner" : "Meal Planner"} 
         subtitle="Plan delicious, macro-balanced meals" 
+        action={
+          activeTab === "planner" && (
+            <button
+              onClick={() => setActiveTab("corner")}
+              className="flex items-center gap-1 text-xs font-bold text-[#007000] hover:underline"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              <span>Chef's Corner</span>
+            </button>
+          )
+        }
       />
 
-      {/* Tabs Switcher */}
-      <div className="mx-5 mt-4 grid grid-cols-2 gap-1 rounded-2xl bg-muted p-1 border border-border/80">
-        <button
-          onClick={() => {
-            setActiveTab("corner");
-            setSelectedCategory("All");
-          }}
-          className={`py-2 rounded-xl text-xs font-bold transition duration-200 active:scale-95 ${
-            activeTab === "corner"
-              ? "bg-[#007000] text-white shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Chef's Corner
-        </button>
-        <button
-          onClick={() => setActiveTab("planner")}
-          className={`py-2 rounded-xl text-xs font-bold transition duration-200 active:scale-95 ${
-            activeTab === "planner"
-              ? "bg-[#007000] text-white shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Meal Planner
-        </button>
-      </div>
+      {/* Tabs Switcher - Only shown on Chef's Corner tab */}
+      {activeTab === "corner" && (
+        <div className="mx-5 mt-4 grid grid-cols-2 gap-1 rounded-2xl bg-muted p-1 border border-border/80">
+          <button
+            onClick={() => {
+              setActiveTab("corner");
+              setSelectedCategory("All");
+            }}
+            className={`py-2 rounded-xl text-xs font-bold transition duration-200 active:scale-95 ${
+              activeTab === "corner"
+                ? "bg-[#007000] text-white shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Chef's Corner
+          </button>
+          <button
+            onClick={() => setActiveTab("planner")}
+            className={`py-2 rounded-xl text-xs font-bold transition duration-200 active:scale-95 ${
+              activeTab === "planner"
+                ? "bg-[#007000] text-white shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Meal Planner
+          </button>
+        </div>
+      )}
 
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto px-5 pt-4 pb-28">
@@ -359,6 +385,15 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
         {activeTab === "corner" && (
           <div className="space-y-4">
             
+            {/* Pizza Banner at the top above the search bar */}
+            <div className="rounded-3xl overflow-hidden mb-4 border border-border/70 bg-card shadow-sm">
+              <img 
+                src="/chef_corner_banner.jpg" 
+                alt="Chef's Corner Banner" 
+                className="w-full h-auto object-cover" 
+              />
+            </div>
+
             {/* Search Bar & Voice Control */}
             <div className="relative flex items-center gap-2">
               <div className="relative flex-1">
@@ -437,103 +472,273 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
                 No recipes matching your query.
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3.5">
-                {filteredRecipes.map((recipe) => (
-                  <div 
-                    key={recipe.id}
-                    onClick={() => {
-                      setSelectedRecipe(recipe);
-                      setAiAnalysis(STATIC_AI_ANALYSIS[recipe.id] || null);
-                    }}
-                    className="group rounded-3xl border border-border bg-card overflow-hidden shadow-card hover:border-[#007000]/40 transition duration-300 relative flex flex-col cursor-pointer"
-                  >
-                    <div className="relative aspect-[4/3.2] overflow-hidden bg-muted">
-                      <img 
-                        src={recipe.image} 
-                        alt={recipe.title} 
-                        className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        onError={(e) => {
-                          e.currentTarget.src = "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop&q=60";
-                        }}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-                      
-                      {/* Category Badge */}
-                      <span className="absolute top-2.5 left-2.5 bg-black/60 text-white font-bold text-[8px] px-2 py-0.5 rounded-md uppercase tracking-wider">
-                        {recipe.category}
-                      </span>
-                      
-                      {/* Schedule Button */}
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowScheduleDropdownId(showScheduleDropdownId === recipe.id ? null : recipe.id);
-                        }}
-                        className="absolute top-2.5 right-2.5 bg-black/60 p-1.5 rounded-full text-white hover:bg-[#007000] hover:scale-105 active:scale-95 transition shadow-md z-10"
-                        title="Schedule Meal"
-                      >
-                        <Calendar className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-
-                    <div className="p-3 flex flex-col justify-between flex-1 space-y-1.5">
-                      <div>
-                        <h4 className="font-display text-xs font-bold text-foreground capitalize leading-snug line-clamp-1">
-                          {recipe.title}
-                        </h4>
-                        <p className="text-[9px] text-muted-foreground mt-0.5 font-semibold">
-                          {recipe.calories} · {recipe.time}
-                        </p>
-                      </div>
-                      
-                      <div className="flex items-center justify-between pt-1">
-                        <span className="text-[8px] bg-emerald-500/10 text-emerald-600 font-bold px-1.5 py-0.5 rounded-md">
-                          {recipe.ingredients.length} Items
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Schedule Date Dropdown overlay inside Card */}
-                    {showScheduleDropdownId === recipe.id && (
-                      <div 
-                        className="absolute inset-x-2 bottom-2 z-20 bg-card border border-border shadow-glow rounded-2xl p-2.5 flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-150"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-bold px-1">Select date:</p>
-                        <input 
-                          type="date" 
-                          value={selectedDate}
-                          onChange={async (e) => {
-                            setSelectedDate(e.target.value);
-                            setShowScheduleDropdownId(null);
-                            await addMealPlanMutation.mutateAsync({ recipeId: recipe.id, dateStr: e.target.value });
-                            toast.success(`Scheduled ${recipe.title}! 📅`);
+              <div className="space-y-4">
+                {/* First 4 recipes */}
+                <div className="grid grid-cols-2 gap-3.5">
+                  {filteredRecipes.slice(0, 4).map((recipe) => (
+                    <div 
+                      key={recipe.id}
+                      onClick={() => {
+                        setSelectedRecipe(recipe);
+                        setAiAnalysis(STATIC_AI_ANALYSIS[recipe.id] || null);
+                      }}
+                      className="group rounded-3xl border border-border bg-card overflow-hidden shadow-card hover:border-[#007000]/40 transition duration-300 relative flex flex-col cursor-pointer"
+                    >
+                      <div className="relative aspect-[4/3.2] overflow-hidden bg-muted">
+                        <img 
+                          src={recipe.image} 
+                          alt={recipe.title} 
+                          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          onError={(e) => {
+                            e.currentTarget.src = "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop&q=60";
                           }}
-                          className="w-full text-[10px] bg-muted border border-border rounded-lg px-2 py-1 text-foreground focus:outline-none focus:border-[#007000]"
                         />
-                        <div className="grid grid-cols-2 gap-1 mt-1 border-t border-border/50 pt-1">
-                          <button
-                            onClick={async () => {
-                              setShowScheduleDropdownId(null);
-                              const todayStr = new Date().toISOString().split("T")[0];
-                              await addMealPlanMutation.mutateAsync({ recipeId: recipe.id, dateStr: todayStr });
-                              toast.success(`Scheduled ${recipe.title} for Today! 📅`);
-                            }}
-                            className="py-1 text-[9px] font-bold text-white bg-[#007000] rounded-md active:scale-95 transition"
-                          >
-                            Today
-                          </button>
-                          <button
-                            onClick={() => setShowScheduleDropdownId(null)}
-                            className="py-1 text-[9px] font-bold text-muted-foreground bg-muted rounded-md active:scale-95 transition"
-                          >
-                            Cancel
-                          </button>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                        
+                        {/* Category Badge */}
+                        <span className="absolute top-2.5 left-2.5 bg-black/60 text-white font-bold text-[8px] px-2 py-0.5 rounded-md uppercase tracking-wider">
+                          {recipe.category}
+                        </span>
+                        
+                        {/* Schedule Button */}
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowScheduleDropdownId(showScheduleDropdownId === recipe.id ? null : recipe.id);
+                          }}
+                          className="absolute top-2.5 right-2.5 bg-black/60 p-1.5 rounded-full text-white hover:bg-[#007000] hover:scale-105 active:scale-95 transition shadow-md z-10"
+                          title="Schedule Meal"
+                        >
+                          <Calendar className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="p-3 flex flex-col justify-between flex-1 space-y-1.5">
+                        <div>
+                          <h4 className="font-display text-xs font-bold text-foreground capitalize leading-snug line-clamp-1">
+                            {recipe.title}
+                          </h4>
+                          <p className="text-[9px] text-muted-foreground mt-0.5 font-semibold">
+                            {recipe.calories} · {recipe.time}
+                          </p>
+                        </div>
+                        
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[8px] bg-emerald-500/10 text-emerald-600 font-bold px-1.5 py-0.5 rounded-md">
+                            {recipe.ingredients.length} Items
+                          </span>
                         </div>
                       </div>
-                    )}
+
+                      {/* Schedule Date Dropdown overlay inside Card */}
+                      {showScheduleDropdownId === recipe.id && (
+                        <div 
+                          className="absolute inset-x-2 bottom-2 z-20 bg-card border border-border shadow-glow rounded-2xl p-2.5 flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-150"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-bold px-1">Select date:</p>
+                          <input 
+                            type="date" 
+                            value={selectedDate}
+                            onChange={async (e) => {
+                              setSelectedDate(e.target.value);
+                              setShowScheduleDropdownId(null);
+                              await addMealPlanMutation.mutateAsync({ recipeId: recipe.id, dateStr: e.target.value });
+                              toast.success(`Scheduled ${recipe.title}! 📅`);
+                            }}
+                            className="w-full text-[10px] bg-muted border border-border rounded-lg px-2 py-1 text-foreground focus:outline-none focus:border-[#007000]"
+                          />
+                          <div className="grid grid-cols-2 gap-1 mt-1 border-t border-border/50 pt-1">
+                            <button
+                              onClick={async () => {
+                                setShowScheduleDropdownId(null);
+                                const todayStr = new Date().toISOString().split("T")[0];
+                                await addMealPlanMutation.mutateAsync({ recipeId: recipe.id, dateStr: todayStr });
+                                toast.success(`Scheduled ${recipe.title} for Today! 📅`);
+                              }}
+                              className="py-1 text-[9px] font-bold text-white bg-[#007000] rounded-md active:scale-95 transition"
+                            >
+                              Today
+                            </button>
+                            <button
+                              onClick={() => setShowScheduleDropdownId(null)}
+                              className="py-1 text-[9px] font-bold text-muted-foreground bg-muted rounded-md active:scale-95 transition"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Moving Showcase: Carousel of recipe images. Hovering or clicking displays the name. */}
+                <div className="space-y-2 py-3 border-y border-border/60 my-2 overflow-hidden">
+                  <div className="flex items-center justify-between px-1">
+                    <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Spotlight Selection
+                    </h3>
+                    <span className="text-[9px] text-amber-500 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded-full animate-pulse">
+                      Roll View
+                    </span>
                   </div>
-                ))}
+                  <div className="relative w-full overflow-hidden rounded-2xl bg-muted/40 p-2">
+                    <div className="animate-marquee gap-3 hover:[animation-play-state:paused] flex">
+                      {recipes.slice(0, 6).map((recipe) => (
+                        <div 
+                          key={recipe.id}
+                          onClick={() => {
+                            setSelectedRecipe(recipe);
+                            setAiAnalysis(STATIC_AI_ANALYSIS[recipe.id] || null);
+                          }}
+                          className="relative w-28 h-20 rounded-xl overflow-hidden cursor-pointer group shadow-sm flex-shrink-0 border border-border"
+                        >
+                          <img 
+                            src={recipe.image} 
+                            alt={recipe.title} 
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                          />
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center p-1.5 transition-opacity text-center">
+                            <span className="text-[9px] text-white font-bold whitespace-normal leading-tight">
+                              {recipe.title}
+                            </span>
+                          </div>
+                          <div className="absolute bottom-0 inset-x-0 bg-black/65 py-1 text-center group-hover:hidden transition-all">
+                            <p className="text-[8px] text-white font-bold truncate px-1">{recipe.title}</p>
+                          </div>
+                        </div>
+                      ))}
+                      {/* Duplicate for infinite effect */}
+                      {recipes.slice(0, 6).map((recipe) => (
+                        <div 
+                          key={`${recipe.id}-dup`}
+                          onClick={() => {
+                            setSelectedRecipe(recipe);
+                            setAiAnalysis(STATIC_AI_ANALYSIS[recipe.id] || null);
+                          }}
+                          className="relative w-28 h-20 rounded-xl overflow-hidden cursor-pointer group shadow-sm flex-shrink-0 border border-border"
+                        >
+                          <img 
+                            src={recipe.image} 
+                            alt={recipe.title} 
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                          />
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center p-1.5 transition-opacity text-center">
+                            <span className="text-[9px] text-white font-bold whitespace-normal leading-tight">
+                              {recipe.title}
+                            </span>
+                          </div>
+                          <div className="absolute bottom-0 inset-x-0 bg-black/65 py-1 text-center group-hover:hidden transition-all">
+                            <p className="text-[8px] text-white font-bold truncate px-1">{recipe.title}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Remaining recipes in the grid */}
+                {filteredRecipes.length > 4 && (
+                  <div className="grid grid-cols-2 gap-3.5">
+                    {filteredRecipes.slice(4).map((recipe) => (
+                      <div 
+                        key={recipe.id}
+                        onClick={() => {
+                          setSelectedRecipe(recipe);
+                          setAiAnalysis(STATIC_AI_ANALYSIS[recipe.id] || null);
+                        }}
+                        className="group rounded-3xl border border-border bg-card overflow-hidden shadow-card hover:border-[#007000]/40 transition duration-300 relative flex flex-col cursor-pointer"
+                      >
+                        <div className="relative aspect-[4/3.2] overflow-hidden bg-muted">
+                          <img 
+                            src={recipe.image} 
+                            alt={recipe.title} 
+                            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            onError={(e) => {
+                              e.currentTarget.src = "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop&q=60";
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                          
+                          {/* Category Badge */}
+                          <span className="absolute top-2.5 left-2.5 bg-black/60 text-white font-bold text-[8px] px-2 py-0.5 rounded-md uppercase tracking-wider">
+                            {recipe.category}
+                          </span>
+                          
+                          {/* Schedule Button */}
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowScheduleDropdownId(showScheduleDropdownId === recipe.id ? null : recipe.id);
+                            }}
+                            className="absolute top-2.5 right-2.5 bg-black/60 p-1.5 rounded-full text-white hover:bg-[#007000] hover:scale-105 active:scale-95 transition shadow-md z-10"
+                            title="Schedule Meal"
+                          >
+                            <Calendar className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="p-3 flex flex-col justify-between flex-1 space-y-1.5">
+                          <div>
+                            <h4 className="font-display text-xs font-bold text-foreground capitalize leading-snug line-clamp-1">
+                              {recipe.title}
+                            </h4>
+                            <p className="text-[9px] text-muted-foreground mt-0.5 font-semibold">
+                              {recipe.calories} · {recipe.time}
+                            </p>
+                          </div>
+                          
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-[8px] bg-emerald-500/10 text-emerald-600 font-bold px-1.5 py-0.5 rounded-md">
+                              {recipe.ingredients.length} Items
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Schedule Date Dropdown overlay inside Card */}
+                        {showScheduleDropdownId === recipe.id && (
+                          <div 
+                            className="absolute inset-x-2 bottom-2 z-20 bg-card border border-border shadow-glow rounded-2xl p-2.5 flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-150"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-bold px-1">Select date:</p>
+                            <input 
+                              type="date" 
+                              value={selectedDate}
+                              onChange={async (e) => {
+                                setSelectedDate(e.target.value);
+                                setShowScheduleDropdownId(null);
+                                await addMealPlanMutation.mutateAsync({ recipeId: recipe.id, dateStr: e.target.value });
+                                toast.success(`Scheduled ${recipe.title}! 📅`);
+                              }}
+                              className="w-full text-[10px] bg-muted border border-border rounded-lg px-2 py-1 text-foreground focus:outline-none focus:border-[#007000]"
+                            />
+                            <div className="grid grid-cols-2 gap-1 mt-1 border-t border-border/50 pt-1">
+                              <button
+                                onClick={async () => {
+                                    setShowScheduleDropdownId(null);
+                                    const todayStr = new Date().toISOString().split("T")[0];
+                                    await addMealPlanMutation.mutateAsync({ recipeId: recipe.id, dateStr: todayStr });
+                                    toast.success(`Scheduled ${recipe.title} for Today! 📅`);
+                                }}
+                                className="py-1 text-[9px] font-bold text-white bg-[#007000] rounded-md active:scale-95 transition"
+                              >
+                                Today
+                              </button>
+                              <button
+                                onClick={() => setShowScheduleDropdownId(null)}
+                                className="py-1 text-[9px] font-bold text-muted-foreground bg-muted rounded-md active:scale-95 transition"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
