@@ -16,6 +16,11 @@ create table if not exists public.profiles (
   weight_kg numeric default 70,
   height_cm numeric default 178,
   ai_plan jsonb,
+  age integer default 28,
+  gender text default 'male',
+  activity numeric default 1.55,
+  diet text default 'Omnivore',
+  workout_type text default 'Strength training',
   created_at timestamp with time zone default now()
 );
 
@@ -165,7 +170,12 @@ begin
     carbs_goal, 
     fats_goal, 
     weight_kg, 
-    height_cm
+    height_cm,
+    age,
+    gender,
+    activity,
+    diet,
+    workout_type
   )
   values (
     new.id,
@@ -179,7 +189,12 @@ begin
     220,
     70,
     70,
-    178
+    178,
+    28,
+    'male',
+    1.55,
+    'Omnivore',
+    'Strength training'
   )
   on conflict (id) do nothing;
   return new;

@@ -57,8 +57,12 @@ function Profile() {
         // 1. Update profiles table first
         await supabase.from("profiles").update({
           name: editForm.name,
+          phone: editForm.phone,
+          age: Number(editForm.age),
           weight_kg: Number(editForm.weightKg),
           height_cm: Number(editForm.heightCm),
+          diet: editForm.diet,
+          workout_type: editForm.workoutType,
         }).eq("id", userId);
       }
 

@@ -183,6 +183,11 @@ Provide a JSON response with exactly this structure:
           weight_kg: data.weightKg,
           height_cm: data.heightCm,
           ai_plan: aiPlan,
+          age: data.age,
+          gender: data.gender,
+          activity: data.activity,
+          diet: data.diet,
+          workout_type: data.workoutType,
         });
 
         saveWeightHistory(data.weightKg, authData.user?.email, userId);

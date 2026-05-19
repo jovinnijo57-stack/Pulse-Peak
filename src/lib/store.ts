@@ -24,6 +24,8 @@ export type Profile = {
   fatsGoal: number;
   waterGoalMl: number;
   aiPlan?: any;
+  diet?: string;
+  workoutType?: string;
 };
 
 type State = {
@@ -50,6 +52,8 @@ const defaultState: State = {
     carbsGoal: 220,
     fatsGoal: 70,
     waterGoalMl: 2500,
+    diet: "Omnivore",
+    workoutType: "Strength training",
   },
   meals: [],
   exercises: [],
@@ -113,6 +117,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               weightKg: profileData.weight_kg || loaded.profile.weightKg,
               heightCm: profileData.height_cm || loaded.profile.heightCm,
               aiPlan: profileData.ai_plan || loaded.profile.aiPlan,
+              age: profileData.age || loaded.profile.age,
+              gender: profileData.gender || loaded.profile.gender,
+              activity: profileData.activity ? Number(profileData.activity) : loaded.profile.activity,
+              diet: profileData.diet || loaded.profile.diet,
+              workoutType: profileData.workout_type || loaded.profile.workoutType,
             };
           } else {
             loaded.profile.email = authData?.user?.email || "";
