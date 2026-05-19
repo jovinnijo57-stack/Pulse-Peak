@@ -206,3 +206,56 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+
+-- 7. Recipes & Meal Plans Tables
+CREATE TABLE IF NOT EXISTS public.recipes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL,
+    category TEXT NOT NULL,
+    time TEXT,
+    serves INTEGER DEFAULT 2,
+    calories TEXT,
+    protein TEXT,
+    fat TEXT,
+    carbs TEXT,
+    image TEXT,
+    ingredients JSONB NOT NULL DEFAULT '[]'::jsonb,
+    instructions TEXT[] NOT NULL DEFAULT '{}'::text[],
+    is_custom BOOLEAN DEFAULT FALSE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.meal_plans (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    recipe_id UUID REFERENCES public.recipes(id) ON DELETE CASCADE,
+    planned_date DATE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.recipes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.meal_plans ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public read of global and owner's recipes" ON public.recipes;
+CREATE POLICY "Allow public read of global and owner's recipes" 
+ON public.recipes FOR SELECT 
+USING (user_id IS NULL OR user_id = auth.uid());
+
+DROP POLICY IF EXISTS "Allow authenticated inserts" ON public.recipes;
+CREATE POLICY "Allow authenticated inserts" 
+ON public.recipes FOR INSERT 
+WITH CHECK (auth.uid() = user_id AND is_custom = TRUE);
+
+DROP POLICY IF EXISTS "Allow owners to update their recipes" ON public.recipes;
+CREATE POLICY "Allow owners to update their recipes" ON public.recipes FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Allow owners to delete their recipes" ON public.recipes;
+CREATE POLICY "Allow owners to delete their recipes" ON public.recipes FOR DELETE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Allow owners to manage their meal plans" ON public.meal_plans;
+CREATE POLICY "Allow owners to manage their meal plans" 
+ON public.meal_plans FOR ALL 
+USING (auth.uid() = user_id) 
+WITH CHECK (auth.uid() = user_id);

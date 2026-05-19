@@ -35,7 +35,7 @@ export interface AiAnalysisResult {
 
 export const DEFAULT_RECIPES: Recipe[] = [
   {
-    id: "r1",
+    id: "00000000-0000-0000-0000-000000000001",
     title: "Soft Steamed Idli",
     category: "Breakfast",
     time: "15 min",
@@ -61,7 +61,7 @@ export const DEFAULT_RECIPES: Recipe[] = [
     ]
   },
   {
-    id: "r2",
+    id: "00000000-0000-0000-0000-000000000002",
     title: "Crispy Masala Dosa",
     category: "Breakfast",
     time: "25 min",
@@ -87,7 +87,7 @@ export const DEFAULT_RECIPES: Recipe[] = [
     ]
   },
   {
-    id: "r3",
+    id: "00000000-0000-0000-0000-000000000003",
     title: "Aromatic Chicken Biryani",
     category: "Indian Favorites",
     time: "45 min",
@@ -114,7 +114,7 @@ export const DEFAULT_RECIPES: Recipe[] = [
     ]
   },
   {
-    id: "r4",
+    id: "00000000-0000-0000-0000-000000000004",
     title: "Classic Palak Paneer",
     category: "Indian Favorites",
     time: "30 min",
@@ -140,7 +140,7 @@ export const DEFAULT_RECIPES: Recipe[] = [
     ]
   },
   {
-    id: "r5",
+    id: "00000000-0000-0000-0000-000000000005",
     title: "Mediterranean Chickpea Salad",
     category: "Global Favorites",
     time: "15 min",
@@ -166,7 +166,7 @@ export const DEFAULT_RECIPES: Recipe[] = [
     ]
   },
   {
-    id: "r6",
+    id: "00000000-0000-0000-0000-000000000006",
     title: "Creamy Mango Lassi",
     category: "Drinks",
     time: "5 min",
@@ -191,7 +191,7 @@ export const DEFAULT_RECIPES: Recipe[] = [
     ]
   },
   {
-    id: "r7",
+    id: "00000000-0000-0000-0000-000000000007",
     title: "Kadhi Pakora",
     category: "Indian Favorites",
     time: "35 min",
@@ -217,7 +217,7 @@ export const DEFAULT_RECIPES: Recipe[] = [
     ]
   },
   {
-    id: "r8",
+    id: "00000000-0000-0000-0000-000000000008",
     title: "Soft Gulab Jamun",
     category: "Desserts",
     time: "25 min",
@@ -239,13 +239,13 @@ export const DEFAULT_RECIPES: Recipe[] = [
       "Knead khoya and maida together into a smooth, crack-free dough.",
       "Shape the dough into small smooth rounds.",
       "Fry the balls in low-medium heat ghee until deep golden brown.",
-      "Drain and soak immediately in the warm sugar syrup for 2 hours before serving."
+      "Drain and soak immediately in the sugar syrup for 2 hours before serving."
     ]
   }
 ];
 
 export const STATIC_AI_ANALYSIS: Record<string, AiAnalysisResult> = {
-  "r1": {
+  "00000000-0000-0000-0000-000000000001": {
     water: "1.5 cups (for steaming)",
     time: "15 minutes",
     steps: [
@@ -255,7 +255,7 @@ export const STATIC_AI_ANALYSIS: Record<string, AiAnalysisResult> = {
       "Remove, let cool for 2 minutes, and scoop out soft idlis."
     ]
   },
-  "r2": {
+  "00000000-0000-0000-0000-000000000002": {
     water: "None / Not required",
     time: "25 minutes",
     steps: [
@@ -265,7 +265,7 @@ export const STATIC_AI_ANALYSIS: Record<string, AiAnalysisResult> = {
       "Add 100g potato masala in center, fold and serve crisp."
     ]
   },
-  "r3": {
+  "00000000-0000-0000-0000-000000000003": {
     water: "4 cups (for boiling rice)",
     time: "45 minutes",
     steps: [
@@ -275,7 +275,7 @@ export const STATIC_AI_ANALYSIS: Record<string, AiAnalysisResult> = {
       "Drizzle 20ml Ghee, cover tightly, and steam on Dum for 30 minutes."
     ]
   },
-  "r4": {
+  "00000000-0000-0000-0000-000000000004": {
     water: "2 cups (for blanching)",
     time: "30 minutes",
     steps: [
@@ -285,7 +285,7 @@ export const STATIC_AI_ANALYSIS: Record<string, AiAnalysisResult> = {
       "Stir in 150g Paneer cubes, 15ml Cream, and simmer for 5 minutes."
     ]
   },
-  "r5": {
+  "00000000-0000-0000-0000-000000000005": {
     water: "None / Not required",
     time: "15 minutes",
     steps: [
@@ -295,7 +295,7 @@ export const STATIC_AI_ANALYSIS: Record<string, AiAnalysisResult> = {
       "Season with salt, pepper, and oregano, then mix well."
     ]
   },
-  "r6": {
+  "00000000-0000-0000-0000-000000000006": {
     water: "None / Not required",
     time: "5 minutes",
     steps: [
@@ -305,7 +305,7 @@ export const STATIC_AI_ANALYSIS: Record<string, AiAnalysisResult> = {
       "Pour into glasses and serve chilled."
     ]
   },
-  "r7": {
+  "00000000-0000-0000-0000-000000000007": {
     water: "3 cups (for Kadhi gravy)",
     time: "35 minutes",
     steps: [
@@ -315,7 +315,7 @@ export const STATIC_AI_ANALYSIS: Record<string, AiAnalysisResult> = {
       "Drop in the prepared Onion pakoras and simmer for another 5 minutes."
     ]
   },
-  "r8": {
+  "00000000-0000-0000-0000-000000000008": {
     water: "1.5 cups (for sugar syrup)",
     time: "25 minutes",
     steps: [

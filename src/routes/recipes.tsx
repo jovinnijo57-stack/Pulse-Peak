@@ -1,302 +1,274 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PhoneShell, ScreenHeader } from "@/components/PhoneShell";
 import { 
-  Plus, Calendar, Heart, Search, Mic, MicOff, Clock, Sparkles, 
+  Plus, Calendar, Search, Mic, MicOff, Clock, Sparkles, 
   Trash2, X, ChevronRight, ShoppingCart, Info, Flame, ChevronLeft 
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { 
-  Recipe, Ingredient, MealPlanItem, AiAnalysisResult, 
-  DEFAULT_RECIPES, STATIC_AI_ANALYSIS 
-} from "@/lib/recipeData";
+  useRecipes, 
+  useMealPlans, 
+  useCreateRecipe, 
+  useAddMealPlan, 
+  useDeleteMealPlan 
+} from "@/hooks/useCulinary";
+import { STATIC_AI_ANALYSIS } from "@/lib/recipeData";
+import type { Recipe, Ingredient } from "@/types";
 
 export const Route = createFileRoute("/recipes")({
   head: () => ({ meta: [{ title: "Meal Planner & Chef's Corner — PulsePeak" }] }),
-  component: Recipes,
+  component: RecipesPage,
 });
 
-// Custom styles for infinite scroll marquee and animations
-const STYLE_BLOCK = `
-@keyframes marquee {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-.animate-marquee {
-  display: flex;
-  width: max-content;
-  animation: marquee 35s linear infinite;
-}
-.animate-marquee:hover {
-  animation-play-state: paused;
-}
-.glass-panel {
-  background: rgba(20, 35, 25, 0.7);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-.bg-gradient-green {
-  background: linear-gradient(135deg, #132d1e 0%, #08140e 100%);
-}
-.text-gold {
-  color: #f59e0b;
-}
-.bg-gold {
-  background-color: #f59e0b;
-}
-.border-gold {
-  border-color: #f59e0b;
-}
-`;
-
-function Recipes() {
-  const [userId, setUserId] = useState<string>("guest");
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [mealPlans, setMealPlans] = useState<MealPlanItem[]>([]);
-  const [search, setSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const [isListening, setIsListening] = useState(false);
-  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+function RecipesPage() {
+  const { data: recipes = [], isLoading: loadingRecipes } = useRecipes();
+  const { data: mealPlans = [], isLoading: loadingMealPlans } = useMealPlans();
   
-  // Custom Recipe Modal States
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [customTitle, setCustomTitle] = useState("");
-  const [customCategory, setCustomCategory] = useState("Breakfast");
-  const [customTime, setCustomTime] = useState("");
-  const [customServes, setCustomServes] = useState("2");
-  const [customCalories, setCustomCalories] = useState("");
-  const [customProtein, setCustomProtein] = useState("");
-  const [customFat, setCustomFat] = useState("");
-  const [customCarbs, setCustomCarbs] = useState("");
-  const [customImage, setCustomImage] = useState("");
-  const [ingredientsInput, setIngredientsInput] = useState<{ name: string; qty: string; unit: string }[]>([
-    { name: "", qty: "", unit: "g" }
-  ]);
-  const [instructionsInput, setInstructionsInput] = useState<string[]>([""]);
+  const createRecipeMutation = useCreateRecipe();
+  const addMealPlanMutation = useAddMealPlan();
+  const deleteMealPlanMutation = useDeleteMealPlan();
 
-  // Date and Week planning states
+  // Tab State
+  const [activeTab, setActiveTab] = useState<"corner" | "planner">("corner");
+
+  // Search & Voice Recognition
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  // Selected date for planner
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );
-  const [weekDays, setWeekDays] = useState<Date[]>([]);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-
-  // AI analysis states
+  
+  // Modals state
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [showAddRecipeModal, setShowAddRecipeModal] = useState(false);
+  const [showScheduleDropdownId, setShowScheduleDropdownId] = useState<string | null>(null);
+  
+  // AI analysis state for the detail modal
   const [analyzingRecipeId, setAnalyzingRecipeId] = useState<string | null>(null);
-  const [aiAnalysis, setAiAnalysis] = useState<AiAnalysisResult | null>(null);
-  const [plannerOpenRecipeId, setPlannerOpenRecipeId] = useState<string | null>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
 
-  // Load Initial Data
+  // Form state for creating custom recipe
+  const [newTitle, setNewTitle] = useState("");
+  const [newCategory, setNewCategory] = useState("Breakfast");
+  const [newTime, setNewTime] = useState("20 min");
+  const [newServes, setNewServes] = useState(2);
+  const [newCalories, setNewCalories] = useState("250 kcal");
+  const [newProtein, setNewProtein] = useState("10g");
+  const [newFat, setNewFat] = useState("8g");
+  const [newCarbs, setNewCarbs] = useState("30g");
+  const [newImage, setNewImage] = useState("");
+  const [ingredients, setIngredients] = useState<Ingredient[]>([
+    { id: "1", name: "", qty: 100 }
+  ]);
+  const [instructions, setInstructions] = useState<string[]>([""]);
+
+  // Calculate Monday - Sunday for the selected date's week
+  const [weekDays, setWeekDays] = useState<Date[]>([]);
+
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      const uid = data?.user?.id || "guest";
-      setUserId(uid);
-
-      // 1. Merge default and custom recipes
-      const custom = localStorage.getItem(`nexgro_custom_recipes_${uid}`);
-      const parsedCustom: Recipe[] = custom ? JSON.parse(custom) : [];
-      setRecipes([...DEFAULT_RECIPES, ...parsedCustom]);
-
-      // 2. Load meal plans
-      const plans = localStorage.getItem(`nexgro_meal_plans_${uid}`);
-      if (plans) {
-        setMealPlans(JSON.parse(plans));
-      }
-    });
-
-    // 3. Set current week
-    updateWeekDays(new Date());
-  }, []);
-
-  // Update calendar days for selected date
-  const updateWeekDays = (dateObj: Date) => {
-    const day = dateObj.getDay();
-    const diff = dateObj.getDate() - day + (day === 0 ? -6 : 1); // get Monday
-    const monday = new Date(dateObj);
+    const current = new Date(selectedDate);
+    const dayOfWeek = current.getDay(); // 0 is Sunday, 1 is Monday
+    // Calculate Monday
+    const monday = new Date(current);
+    const diff = current.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
     monday.setDate(diff);
 
-    const week = [];
+    const days = [];
     for (let i = 0; i < 7; i++) {
-      const next = new Date(monday);
-      next.setDate(monday.getDate() + i);
-      week.push(next);
+      const nextDay = new Date(monday);
+      nextDay.setDate(monday.getDate() + i);
+      days.push(nextDay);
     }
-    setWeekDays(week);
+    setWeekDays(days);
+  }, [selectedDate]);
+
+  // Voice Search initialization
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const rec = new SpeechRecognition();
+      rec.continuous = false;
+      rec.interimResults = false;
+      rec.lang = "en-US";
+
+      rec.onstart = () => setIsListening(true);
+      rec.onend = () => setIsListening(false);
+      rec.onerror = () => setIsListening(false);
+      rec.onresult = (e: any) => {
+        const transcript = e.results[0][0].transcript;
+        setSearchQuery(transcript);
+        toast.success(`Voice search: "${transcript}"`);
+      };
+      recognitionRef.current = rec;
+    }
+  }, []);
+
+  const handleVoiceSearch = () => {
+    if (!recognitionRef.current) {
+      toast.error("Speech recognition is not supported on this browser.");
+      return;
+    }
+    if (isListening) {
+      recognitionRef.current.stop();
+    } else {
+      recognitionRef.current.start();
+    }
   };
 
-  // Handle Date Pick
-  const handleDateChange = (dateString: string) => {
-    setSelectedDate(dateString);
-    updateWeekDays(new Date(dateString));
+  // Filter Recipes
+  const filteredRecipes = recipes.filter(r => 
+    r.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    r.category.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Helper for meal plan filtering
+  const dailyPlans = mealPlans.filter(p => p.plannedDate === selectedDate);
+
+  // Form Ingredient helpers
+  const addIngredientField = () => {
+    setIngredients([...ingredients, { id: Date.now().toString(), name: "", qty: 100 }]);
+  };
+  const removeIngredientField = (idx: number) => {
+    if (ingredients.length > 1) {
+      setIngredients(ingredients.filter((_, i) => i !== idx));
+    }
+  };
+  const updateIngredientField = (idx: number, field: keyof Ingredient, val: any) => {
+    const copy = [...ingredients];
+    copy[idx] = { ...copy[idx], [field]: val };
+    setIngredients(copy);
   };
 
-  // Add customized recipes
-  const handleAddIngredientRow = () => {
-    setIngredientsInput([...ingredientsInput, { name: "", qty: "", unit: "g" }]);
+  // Form Instruction helpers
+  const addInstructionField = () => {
+    setInstructions([...instructions, ""]);
+  };
+  const removeInstructionField = (idx: number) => {
+    if (instructions.length > 1) {
+      setInstructions(instructions.filter((_, i) => i !== idx));
+    }
+  };
+  const updateInstructionField = (idx: number, val: string) => {
+    const copy = [...instructions];
+    copy[idx] = val;
+    setInstructions(copy);
   };
 
-  const handleRemoveIngredientRow = (index: number) => {
-    setIngredientsInput(ingredientsInput.filter((_, i) => i !== index));
-  };
-
-  const handleAddInstructionRow = () => {
-    setInstructionsInput([...instructionsInput, ""]);
-  };
-
-  const handleRemoveInstructionRow = (index: number) => {
-    setInstructionsInput(instructionsInput.filter((_, i) => i !== index));
-  };
-
-  const handleCreateRecipe = (e: React.FormEvent) => {
+  // Create Recipe Handler
+  const handleCreateRecipe = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customTitle || !customTime || !customCalories) {
-      toast.error("Please fill in the title, cooking time and calorie information!");
+    if (!newTitle.trim()) {
+      toast.error("Please enter a recipe title.");
       return;
     }
 
-    const cleanedIngredients: Ingredient[] = ingredientsInput
-      .filter(i => i.name.trim() !== "" && i.qty !== "")
-      .map((i, index) => ({
-        id: `custom-i-${Date.now()}-${index}`,
-        name: i.name.trim(),
-        qty: Number(i.qty) || 1,
-        unit: i.unit
-      }));
+    const filteredIngredients = ingredients.filter(i => i.name.trim() !== "");
+    const filteredInstructions = instructions.filter(i => i.trim() !== "");
 
-    const cleanedInstructions = instructionsInput.filter(step => step.trim() !== "");
-
-    if (cleanedIngredients.length === 0) {
-      toast.error("Please add at least one ingredient!");
-      return;
-    }
-
-    const newRecipe: Recipe = {
-      id: `custom-r-${Date.now()}`,
-      title: customTitle.trim(),
-      category: customCategory,
-      time: customTime,
-      serves: Number(customServes) || 2,
-      calories: `${customCalories} kcal`,
-      protein: customProtein ? `${customProtein}g` : "0g",
-      fat: customFat ? `${customFat}g` : "0g",
-      carbs: customCarbs ? `${customCarbs}g` : "0g",
-      image: customImage.trim() || "https://images.unsplash.com/photo-1495521821757-a1efb6729352?w=600&auto=format&fit=crop&q=60",
-      ingredients: cleanedIngredients,
-      instructions: cleanedInstructions.length > 0 ? cleanedInstructions : ["Combine ingredients and cook to taste."]
-    };
-
-    const custom = localStorage.getItem(`nexgro_custom_recipes_${userId}`);
-    const parsedCustom: Recipe[] = custom ? JSON.parse(custom) : [];
-    const updatedCustom = [...parsedCustom, newRecipe];
-
-    localStorage.setItem(`nexgro_custom_recipes_${userId}`, JSON.stringify(updatedCustom));
-    setRecipes([...DEFAULT_RECIPES, ...updatedCustom]);
+    await createRecipeMutation.mutateAsync({
+      title: newTitle,
+      category: newCategory,
+      time: newTime,
+      serves: newServes,
+      calories: newCalories,
+      protein: newProtein,
+      fat: newFat,
+      carbs: newCarbs,
+      image: newImage || "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop&q=60",
+      ingredients: filteredIngredients.map(i => ({ ...i, unit: i.unit || "g" })),
+      instructions: filteredInstructions
+    });
 
     // Reset Form
-    setCustomTitle("");
-    setCustomCategory("Breakfast");
-    setCustomTime("");
-    setCustomServes("2");
-    setCustomCalories("");
-    setCustomProtein("");
-    setCustomFat("");
-    setCustomCarbs("");
-    setCustomImage("");
-    setIngredientsInput([{ name: "", qty: "", unit: "g" }]);
-    setInstructionsInput([""]);
-    setShowAddModal(false);
-    toast.success("Successfully added your custom recipe to Chef's Corner!");
+    setNewTitle("");
+    setNewCategory("Breakfast");
+    setNewTime("20 min");
+    setNewServes(2);
+    setNewCalories("250 kcal");
+    setNewProtein("10g");
+    setNewFat("8g");
+    setNewCarbs("30g");
+    setNewImage("");
+    setIngredients([{ id: "1", name: "", qty: 100 }]);
+    setInstructions([""]);
+    setShowAddRecipeModal(false);
   };
 
-  // Add Recipe to Meal Plan Calendar
-  const handleAddToCalendar = (recipe: Recipe, targetDate: string) => {
-    const newItem: MealPlanItem = {
-      id: `plan-${Date.now()}`,
-      recipeId: recipe.id,
-      plannedDate: targetDate,
-      recipeDetails: recipe
-    };
-
-    const updatedPlans = [...mealPlans, newItem];
-    setMealPlans(updatedPlans);
-    localStorage.setItem(`nexgro_meal_plans_${userId}`, JSON.stringify(updatedPlans));
-    toast.success(`Planned "${recipe.title}" for ${targetDate}!`);
-    setPlannerOpenRecipeId(null);
+  // Cart Integrator Logic
+  const addRecipeIngredientsToCart = (recipe: Recipe) => {
+    const cart = JSON.parse(localStorage.getItem("pulsepeak_cart") || "[]");
+    recipe.ingredients.forEach(ing => {
+      const existing = cart.find((item: any) => item.name.toLowerCase() === ing.name.toLowerCase());
+      if (existing) {
+        existing.qty += ing.qty;
+      } else {
+        cart.push({ ...ing, id: ing.id || crypto.randomUUID() });
+      }
+    });
+    localStorage.setItem("pulsepeak_cart", JSON.stringify(cart));
+    toast.success(`Added ${recipe.ingredients.length} ingredients from "${recipe.title}" to cart! 🛒`);
   };
 
-  // Remove planned recipe
-  const handleRemovePlan = (planId: string) => {
-    const updatedPlans = mealPlans.filter(p => p.id !== planId);
-    setMealPlans(updatedPlans);
-    localStorage.setItem(`nexgro_meal_plans_${userId}`, JSON.stringify(updatedPlans));
-    toast.success("Removed meal from planner.");
-  };
-
-  // Clear all planned recipes
-  const handleClearAllPlans = () => {
-    if (window.confirm("Are you sure you want to clear all scheduled meals?")) {
-      setMealPlans([]);
-      localStorage.setItem(`nexgro_meal_plans_${userId}`, JSON.stringify([]));
-      toast.success("Successfully cleared all planned meals.");
+  const addAllPlannedToCart = () => {
+    if (dailyPlans.length === 0) {
+      toast.error("No recipes scheduled for today to add to cart.");
+      return;
     }
+    const cart = JSON.parse(localStorage.getItem("pulsepeak_cart") || "[]");
+    let totalAdded = 0;
+    dailyPlans.forEach(plan => {
+      plan.recipeDetails.ingredients.forEach(ing => {
+        const existing = cart.find((item: any) => item.name.toLowerCase() === ing.name.toLowerCase());
+        if (existing) {
+          existing.qty += ing.qty;
+        } else {
+          cart.push({ ...ing, id: ing.id || crypto.randomUUID() });
+        }
+        totalAdded++;
+      });
+    });
+    localStorage.setItem("pulsepeak_cart", JSON.stringify(cart));
+    toast.success(`Successfully added all planned ingredients (${totalAdded} items) to cart! 🛒`);
   };
 
-  // Add ingredients to shopping cart
-  const handleAddToCart = (recipe: Recipe) => {
-    const existingCart = localStorage.getItem(`nexgro_grocery_cart_${userId}`);
-    const cartItems = existingCart ? JSON.parse(existingCart) : [];
-    
-    const formattedIngredients = recipe.ingredients.map(ing => ({
-      id: ing.id,
-      name: ing.name,
-      qty: ing.qty,
-      unit: ing.unit,
-      recipeTitle: recipe.title,
-      addedAt: new Date().toISOString()
-    }));
-
-    const newCart = [...cartItems, ...formattedIngredients];
-    localStorage.setItem(`nexgro_grocery_cart_${userId}`, JSON.stringify(newCart));
-    toast.success(`Added ${recipe.ingredients.length} ingredients from "${recipe.title}" to your Shopping Cart!`);
-  };
-
-  // AI analysis using Gemini endpoint (supporting local fallback)
+  // Gemini AI Analysis API Call
   const handleAiAnalysis = async (recipe: Recipe) => {
     setAnalyzingRecipeId(recipe.id);
     setAiAnalysis(null);
 
     // 1. Check static fallback
     if (STATIC_AI_ANALYSIS[recipe.id]) {
-      await new Promise(r => setTimeout(r, 900)); // simulation of quick response
       setAiAnalysis(STATIC_AI_ANALYSIS[recipe.id]);
       setAnalyzingRecipeId(null);
+      toast.success("Loaded chef's detailed analysis instantly.");
       return;
     }
 
-    // 2. Load API key
     const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (!geminiKey) {
-      // Return smart local defaults
-      await new Promise(r => setTimeout(r, 1000));
-      const fallbackResult: AiAnalysisResult = {
-        water: "1 to 2 cups (approx. 400ml)",
+      // Create instant realistic mock
+      const mockResult = {
+        water: "2.5 cups",
         time: recipe.time,
-        steps: [
-          `Prep the main ingredients: ${recipe.ingredients.map(i => `${i.qty}${i.unit} of ${i.name}`).join(", ")}.`,
-          `Heat your skillet/cooking pot to medium heat and add cooking oil.`,
-          `Stir-fry or combine the ingredients and cook slowly for ${recipe.time}.`,
-          `Adjust seasoning to taste and serve immediately.`
-        ]
+        steps: recipe.instructions.map((step, idx) => {
+          if (idx === 0 && recipe.ingredients[0]) {
+            return `Sauté the ${recipe.ingredients[0].qty}g of ${recipe.ingredients[0].name} in the pan.`;
+          }
+          return step;
+        })
       };
-      setAiAnalysis(fallbackResult);
+      setAiAnalysis(mockResult);
       setAnalyzingRecipeId(null);
-      toast.info("Using smart local fallback (No Gemini API key configured)");
+      toast.info("Using fallback smart analysis.");
       return;
     }
 
     try {
-      const prompt = `You are a professional culinary assistant.
-Analyze this recipe: "${recipe.title}".
+      const prompt = `Analyze this recipe: "${recipe.title}". 
 Ingredients provided: ${JSON.stringify(recipe.ingredients)}.
 Please provide a professional culinary analysis:
 1. Estimated water needed for cooking (e.g., "2 cups", "500ml").
@@ -315,773 +287,809 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
           })
         }
       );
-      
+
       const data = await response.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      
       if (text) {
-        const parsed = JSON.parse(text.trim());
-        setAiAnalysis(parsed);
+        // Strip markdown backticks
+        const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
+        setAiAnalysis(JSON.parse(cleanJson));
+        toast.success("Successfully analyzed prep details using Gemini AI! ✨");
       } else {
-        throw new Error("Invalid API response format");
+        throw new Error("Empty response");
       }
     } catch (err) {
       console.error(err);
+      toast.error("Failed to run Gemini AI analysis. Loading mock details.");
       setAiAnalysis({
-        water: "2 cups (approx.)",
+        water: "2 cups",
         time: recipe.time,
         steps: recipe.instructions
       });
-      toast.error("Gemini API call failed. Displaying standard cooking instructions.");
     } finally {
       setAnalyzingRecipeId(null);
     }
   };
 
-  // Voice Search (HTML5 Speech Recognition)
-  const handleVoiceSearch = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      toast.error("Voice search is not supported in this browser.");
-      return;
-    }
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.lang = "en-US";
-    recognition.interimResults = false;
-
-    recognition.onstart = () => {
-      setIsListening(true);
-      toast.info("Listening for a recipe name or category...");
-    };
-
-    recognition.onerror = (e: any) => {
-      console.error(e);
-      setIsListening(false);
-      toast.error("Could not capture speech. Try again.");
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setSearch(transcript);
-      toast.success(`Searching for: "${transcript}"`);
-    };
-
-    recognition.start();
-  };
-
-  // Filters calculation
-  const categories = ["All", "Breakfast", "Lunch", "Dinner", "Indian Favorites", "Global Favorites", "Desserts", "Drinks"];
-  const filteredRecipes = recipes.filter(r => {
-    const matchesSearch = r.title.toLowerCase().includes(search.toLowerCase()) || 
-                          r.category.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = selectedCategory === "All" || r.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
-
-  // Calculate planned count
-  const plannedCount = mealPlans.length;
-
   return (
     <PhoneShell>
-      <style>{STYLE_BLOCK}</style>
-      
-      {/* Top Header */}
-      <ScreenHeader 
-        title="Culinary Hub" 
-        subtitle="Chef's Corner & Planner"
-        action={
-          <div className="flex items-center gap-2">
-            <div className="flex h-10 items-center justify-center gap-1 rounded-2xl bg-gradient-card border border-border px-3 text-xs font-semibold shadow-sm">
-              <Calendar className="h-3.5 w-3.5 text-primary" />
-              <span>{plannedCount} Planned</span>
-            </div>
-            <button 
-              onClick={() => setShowAddModal(true)}
-              className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-hero text-primary-foreground shadow-glow active:scale-95 transition"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
-          </div>
-        }
-      />
+      <ScreenHeader title="Chef's Corner" subtitle="Plan delicious, macro-balanced meals" />
 
-      {/* Weekly Schedule Selector */}
-      <div className="mx-5 rounded-3xl border border-border bg-gradient-card p-4 shadow-card">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-emerald-500" />
-            <p className="font-display text-sm font-semibold">Weekly Schedule</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {plannedCount > 0 && (
-              <button 
-                onClick={handleClearAllPlans}
-                className="rounded-xl bg-destructive/10 border border-destructive/20 px-3 py-1 text-xs font-semibold text-destructive hover:bg-destructive/20 transition active:scale-95"
-              >
-                Clear All
-              </button>
-            )}
-            <div className="relative">
-              <button 
-                onClick={() => setShowDatePicker(!showDatePicker)}
-                className="rounded-xl bg-primary/10 border border-primary/20 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/20 transition"
-              >
-                Pick Date
-              </button>
-              {showDatePicker && (
-                <input 
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => {
-                    handleDateChange(e.target.value);
-                    setShowDatePicker(false);
-                  }}
-                  className="absolute right-0 top-8 z-10 rounded-xl border border-border bg-card p-2 text-xs shadow-glow focus:outline-none"
-                />
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Calendar Mon-Sun Cards */}
-        <div className="grid grid-cols-7 gap-1">
-          {weekDays.map((day) => {
-            const dateStr = day.toISOString().split("T")[0];
-            const isSelected = dateStr === selectedDate;
-            const dayName = day.toLocaleDateString("en-US", { weekday: "short" });
-            const dayNum = day.getDate();
-            
-            // Check if there are planned recipes on this day
-            const hasMeals = mealPlans.some(p => p.plannedDate === dateStr);
-
-            return (
-              <button
-                key={dateStr}
-                onClick={() => setSelectedDate(dateStr)}
-                className={`relative flex flex-col items-center rounded-xl py-2 transition-all active:scale-95 ${
-                  isSelected 
-                    ? "bg-primary text-primary-foreground font-bold shadow-md shadow-primary/30" 
-                    : "bg-card/60 hover:bg-card border border-border/40"
-                }`}
-              >
-                <span className="text-[10px] uppercase opacity-75">{dayName}</span>
-                <span className="text-sm font-display mt-0.5">{dayNum}</span>
-                {hasMeals && (
-                  <span className={`absolute bottom-1.5 h-1.5 w-1.5 rounded-full ${isSelected ? "bg-white" : "bg-emerald-500"}`} />
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="mt-3 text-center text-xs text-muted-foreground">
-          Selected Day: <span className="font-semibold text-foreground">{new Date(selectedDate).toLocaleDateString("en-US", { dateStyle: "medium" })}</span>
-        </div>
+      {/* Tabs Switcher */}
+      <div className="mx-5 mt-4 grid grid-cols-2 gap-1 rounded-2xl bg-muted p-1 border border-border/80">
+        <button
+          onClick={() => setActiveTab("corner")}
+          className={`py-2 rounded-xl text-xs font-bold transition duration-200 ${
+            activeTab === "corner"
+              ? "bg-[#007000] text-white shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Chef's Corner
+        </button>
+        <button
+          onClick={() => setActiveTab("planner")}
+          className={`py-2 rounded-xl text-xs font-bold transition duration-200 ${
+            activeTab === "planner"
+              ? "bg-[#007000] text-white shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Meal Planner
+        </button>
       </div>
 
-      {/* Daily Planned Menu */}
-      <div className="mx-5 mt-4">
-        <h2 className="mb-2 font-display text-base font-semibold flex items-center gap-1.5">
-          <span>Scheduled meals for today</span>
-          <span className="text-xs font-normal text-muted-foreground">({selectedDate})</span>
-        </h2>
+      {/* Content Area */}
+      <div className="flex-1 overflow-y-auto px-5 pt-4 pb-28">
         
-        <div className="space-y-2">
-          {mealPlans.filter(p => p.plannedDate === selectedDate).map((plan) => (
-            <div key={plan.id} className="flex items-center justify-between rounded-2xl border border-border bg-card p-3 shadow-sm hover:border-emerald-500/20 transition-all">
-              <div className="flex items-center gap-3" onClick={() => { setSelectedRecipe(plan.recipeDetails); setAiAnalysis(null); }}>
-                <img 
-                  src={plan.recipeDetails.image} 
-                  alt={plan.recipeDetails.title}
-                  className="h-12 w-12 rounded-xl object-cover" 
-                />
-                <div>
-                  <h3 className="text-sm font-semibold leading-tight">{plan.recipeDetails.title}</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {plan.recipeDetails.calories} · {plan.recipeDetails.time}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1">
-                <button 
-                  onClick={() => handleAddToCart(plan.recipeDetails)}
-                  title="Add ingredients to cart"
-                  className="p-2 rounded-xl hover:bg-muted text-muted-foreground hover:text-primary active:scale-95 transition"
-                >
-                  <ShoppingCart className="h-4 w-4" />
-                </button>
-                <button 
-                  onClick={() => handleRemovePlan(plan.id)}
-                  title="Remove from plan"
-                  className="p-2 rounded-xl hover:bg-muted text-muted-foreground hover:text-destructive active:scale-95 transition"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          ))}
-          
-          {mealPlans.filter(p => p.plannedDate === selectedDate).length === 0 && (
-            <div className="rounded-2xl border border-dashed border-border bg-card/40 py-8 text-center text-sm text-muted-foreground flex flex-col items-center justify-center p-4">
-              <p>No meals scheduled for this day.</p>
-              <p className="text-xs mt-1 opacity-75">Select a recipe below to add it to your schedule!</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Trending Horizontal Marquee Gallery */}
-      <div className="mt-6 overflow-hidden">
-        <h2 className="mx-5 mb-2 font-display text-base font-semibold">Trending Recipes</h2>
-        <div className="w-full relative overflow-hidden bg-emerald-950/20 py-2 border-y border-border/20">
-          <div className="animate-marquee">
-            {/* Display twice for continuous infinite scroll */}
-            {[...DEFAULT_RECIPES, ...DEFAULT_RECIPES].map((r, idx) => (
-              <div 
-                key={`marquee-${r.id}-${idx}`}
-                onClick={() => { setSelectedRecipe(r); setAiAnalysis(null); }}
-                className="mx-3 flex w-48 shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card cursor-pointer transform hover:scale-105 active:scale-95 transition duration-300"
-              >
-                <img src={r.image} alt={r.title} className="h-24 w-full object-cover" />
-                <div className="p-2.5">
-                  <span className="rounded-full bg-emerald-500/10 text-emerald-500 px-2 py-0.5 text-[9px] font-semibold uppercase">{r.category}</span>
-                  <h3 className="mt-1 text-xs font-bold truncate leading-tight">{r.title}</h3>
-                  <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
-                    <span>{r.calories}</span>
-                    <span>{r.time}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Search and Filters */}
-      <div className="mx-5 mt-6 space-y-3">
-        <div className="relative flex items-center">
-          <Search className="absolute left-3.5 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search recipes or categories..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-2xl border border-border bg-card px-10 py-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-          />
-          <button 
-            onClick={handleVoiceSearch}
-            className={`absolute right-2 p-2 rounded-xl transition ${
-              isListening ? "bg-red-500 text-white animate-pulse" : "hover:bg-muted text-muted-foreground"
-            }`}
-          >
-            {isListening ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-          </button>
-        </div>
-
-        {/* Scrollable Categories List */}
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {categories.map((c) => (
-            <button
-              key={c}
-              onClick={() => setSelectedCategory(c)}
-              className={`shrink-0 rounded-xl px-4 py-1.5 text-xs font-semibold transition ${
-                selectedCategory === c 
-                  ? "bg-primary text-primary-foreground shadow-glow" 
-                  : "bg-card border border-border/80 text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Chef's Corner Recipe Grid */}
-      <div className="mx-5 mt-4 pb-20">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="font-display text-base font-semibold">Chef's Corner</h2>
-          <span className="text-xs text-muted-foreground">{filteredRecipes.length} recipes found</span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          {filteredRecipes.map((r) => (
-            <div 
-              key={r.id} 
-              className="overflow-hidden rounded-2xl border border-border bg-card shadow-card flex flex-col transform hover:scale-[1.02] transition-all duration-300"
-            >
-              <div className="relative h-28 bg-muted overflow-hidden">
-                <img 
-                  src={r.image} 
-                  alt={r.title} 
-                  className="h-full w-full object-cover transition-transform hover:scale-110 duration-500" 
-                />
-                <span className="absolute left-2 top-2 rounded-full bg-black/60 backdrop-blur-md px-2 py-0.5 text-[9px] font-bold text-white">
-                  {r.category}
+        {/* Tab 1: Chef's Corner (Recipes Database) */}
+        {activeTab === "corner" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                <span>Browse Recipes</span>
+                <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full font-bold">
+                  {filteredRecipes.length} Total
                 </span>
-                
-                {/* Save to Calendar Mini trigger */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setPlannerOpenRecipeId(plannerOpenRecipeId === r.id ? null : r.id);
-                  }}
-                  className="absolute right-2 top-2 p-1.5 rounded-full bg-black/60 backdrop-blur-md text-emerald-400 hover:text-emerald-300 active:scale-95 transition"
-                >
-                  <Calendar className="h-3.5 w-3.5" />
-                </button>
-              </div>
+              </h2>
               
-              <div className="p-3 flex-1 flex flex-col justify-between" onClick={() => { setSelectedRecipe(r); setAiAnalysis(null); }}>
-                <div>
-                  <h3 className="text-sm font-semibold leading-tight hover:text-primary transition line-clamp-1">{r.title}</h3>
-                  <div className="flex gap-2 mt-1 text-[10px] text-muted-foreground">
-                    <span>{r.calories}</span>
-                    <span>·</span>
-                    <span>{r.time}</span>
-                  </div>
-                </div>
+              {/* Add Custom Recipe floating style trigger */}
+              <button 
+                onClick={() => setShowAddRecipeModal(true)}
+                className="flex items-center gap-1 text-[11px] font-bold text-white bg-[#007000] hover:opacity-90 active:scale-95 px-3 py-1.5 rounded-full transition shadow-md"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Create Recipe</span>
+              </button>
+            </div>
 
-                <div className="mt-3 flex items-center justify-between gap-1.5 pt-2 border-t border-border/40">
-                  <span className="text-[10px] font-medium text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-md">
-                    {r.ingredients.length} Items
-                  </span>
+            {/* Interactive Search & Speech Recognition */}
+            <div className="relative flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search recipes, categories..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-10 py-3 rounded-2xl border border-border bg-card text-xs focus:border-[#007000] focus:outline-none transition shadow-sm text-foreground"
+                />
+                {searchQuery && (
                   <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAddToCart(r);
-                    }}
-                    className="p-1.5 rounded-lg bg-primary/10 hover:bg-primary hover:text-primary-foreground text-primary transition active:scale-95"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3.5 top-3.5 text-muted-foreground hover:text-foreground"
                   >
-                    <ShoppingCart className="h-3.5 w-3.5" />
+                    <X className="h-3.5 w-3.5" />
                   </button>
-                </div>
+                )}
               </div>
+              <button
+                onClick={handleVoiceSearch}
+                className={`p-3 rounded-2xl border transition active:scale-95 ${
+                  isListening 
+                    ? "bg-red-500/10 border-red-500/30 text-red-500 animate-pulse" 
+                    : "bg-card border-border hover:bg-muted text-muted-foreground"
+                }`}
+                title="Voice Search"
+              >
+                {isListening ? <MicOff className="h-4.5 w-4.5" /> : <Mic className="h-4.5 w-4.5" />}
+              </button>
+            </div>
 
-              {/* Date Scheduler Popup */}
-              {plannerOpenRecipeId === r.id && (
-                <div className="p-2 border-t border-border/80 bg-emerald-950/20 text-center animate-in fade-in duration-200">
-                  <p className="text-[10px] font-bold text-emerald-400 mb-1">Add to plan date:</p>
-                  <div className="flex justify-center gap-1">
+            {/* Recipe Grid */}
+            {loadingRecipes ? (
+              <div className="py-12 text-center text-xs text-muted-foreground animate-pulse">
+                Loading recipes database...
+              </div>
+            ) : filteredRecipes.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-border/80 bg-card/50 py-12 text-center text-xs text-muted-foreground">
+                No recipes matching your query.
+              </div>
+            ) : (
+              <div className="grid gap-3.5">
+                {filteredRecipes.map((recipe) => (
+                  <div 
+                    key={recipe.id}
+                    className="group rounded-3xl border border-border bg-gradient-card overflow-hidden shadow-card hover:border-[#007000]/40 transition duration-300 relative"
+                  >
+                    <div 
+                      onClick={() => {
+                        setSelectedRecipe(recipe);
+                        setAiAnalysis(STATIC_AI_ANALYSIS[recipe.id] || null);
+                      }}
+                      className="aspect-video w-full overflow-hidden bg-muted relative cursor-pointer"
+                    >
+                      <img 
+                        src={recipe.image} 
+                        alt={recipe.title} 
+                        className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        onError={(e) => {
+                          e.currentTarget.src = "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop&q=60";
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                      <div className="absolute bottom-3.5 left-4 right-4">
+                        <span className="text-[9px] uppercase tracking-wider bg-[#007000] text-white px-2 py-0.5 rounded-md font-bold">
+                          {recipe.category}
+                        </span>
+                        <h3 className="font-display text-base font-extrabold text-white mt-1 capitalize leading-tight">
+                          {recipe.title}
+                        </h3>
+                      </div>
+                    </div>
+
+                    <div className="p-4 space-y-3.5">
+                      {/* Cooking Stats Row */}
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground font-semibold border-b border-border/50 pb-2.5">
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3.5 w-3.5 text-[#007000]" />
+                          <span>{recipe.time}</span>
+                        </div>
+                        <div>·</div>
+                        <div>{recipe.serves} serves</div>
+                        <div>·</div>
+                        <div className="text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-md font-bold">
+                          {recipe.calories}
+                        </div>
+                      </div>
+
+                      {/* Macros Row */}
+                      <div className="grid grid-cols-3 gap-2 text-center text-[10px] bg-muted/40 p-2 rounded-xl">
+                        <div>
+                          <p className="text-muted-foreground font-semibold">Protein</p>
+                          <p className="font-bold text-[#007000] mt-0.5">{recipe.protein}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground font-semibold">Fats</p>
+                          <p className="font-bold text-amber-500 mt-0.5">{recipe.fat}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground font-semibold">Carbs</p>
+                          <p className="font-bold text-foreground mt-0.5">{recipe.carbs}</p>
+                        </div>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-2 pt-1">
+                        <div className="relative flex-1">
+                          <button
+                            onClick={() => setShowScheduleDropdownId(showScheduleDropdownId === recipe.id ? null : recipe.id)}
+                            className="w-full py-2.5 rounded-xl border border-border hover:border-[#007000]/40 text-xs font-bold text-foreground flex items-center justify-center gap-1.5 transition active:scale-95 bg-card"
+                          >
+                            <Calendar className="h-3.5 w-3.5 text-[#007000]" />
+                            <span>Schedule Meal</span>
+                          </button>
+
+                          {/* Quick Calendar Dropdown */}
+                          {showScheduleDropdownId === recipe.id && (
+                            <div className="absolute left-0 right-0 bottom-full mb-2 z-20 bg-card border border-border shadow-glow rounded-2xl p-2.5 flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                              <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold px-1.5">Select date:</p>
+                              <input 
+                                type="date" 
+                                value={selectedDate}
+                                onChange={async (e) => {
+                                  setSelectedDate(e.target.value);
+                                  setShowScheduleDropdownId(null);
+                                  await addMealPlanMutation.mutateAsync({ recipeId: recipe.id, dateStr: e.target.value });
+                                }}
+                                className="w-full text-xs bg-muted border border-border rounded-xl px-2 py-1.5 text-foreground focus:outline-none focus:border-[#007000]"
+                              />
+                              <div className="grid grid-cols-2 gap-1 mt-1 border-t border-border/50 pt-1.5">
+                                <button
+                                  onClick={async () => {
+                                    setShowScheduleDropdownId(null);
+                                    const todayStr = new Date().toISOString().split("T")[0];
+                                    await addMealPlanMutation.mutateAsync({ recipeId: recipe.id, dateStr: todayStr });
+                                  }}
+                                  className="py-1 text-[10px] font-bold text-white bg-[#007000] rounded-lg active:scale-95 transition"
+                                >
+                                  Today
+                                </button>
+                                <button
+                                  onClick={() => setShowScheduleDropdownId(null)}
+                                  className="py-1 text-[10px] font-bold text-muted-foreground bg-muted rounded-lg active:scale-95 transition"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setSelectedRecipe(recipe);
+                            handleAiAnalysis(recipe);
+                          }}
+                          className="px-3.5 py-2.5 rounded-xl bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 active:scale-95 transition"
+                          title="Analyze Prep with AI"
+                        >
+                          <Sparkles className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 2: Meal Planner */}
+        {activeTab === "planner" && (
+          <div className="space-y-5">
+            
+            {/* Weekly Header Calendar Selector */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-bold">
+                  Weekly Schedule
+                </h3>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowDatePicker(true)}
+                    className="flex items-center gap-1 text-[11px] font-bold text-[#007000] bg-[#007000]/10 hover:bg-[#007000]/15 px-2.5 py-1 rounded-full transition"
+                  >
+                    <Calendar className="h-3 w-3" />
+                    <span>Pick Date</span>
+                  </button>
+                  {showDatePicker && (
                     <input 
                       type="date"
-                      defaultValue={selectedDate}
-                      onChange={(e) => handleAddToCalendar(r, e.target.value)}
-                      className="rounded bg-card text-[10px] border border-border px-1 py-0.5 focus:outline-none"
+                      value={selectedDate}
+                      onChange={(e) => {
+                        setSelectedDate(e.target.value);
+                        setShowDatePicker(false);
+                      }}
+                      className="absolute right-0 top-0 opacity-0 cursor-pointer w-20 z-10"
+                      autoFocus
+                      onBlur={() => setTimeout(() => setShowDatePicker(false), 200)}
                     />
-                  </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Monday to Sunday Calendar Grid */}
+              <div className="grid grid-cols-7 gap-1 bg-card border border-border p-1.5 rounded-2xl shadow-sm">
+                {weekDays.map((day, idx) => {
+                  const dateStr = day.toISOString().split("T")[0];
+                  const isSelected = dateStr === selectedDate;
+                  const isToday = dateStr === new Date().toISOString().split("T")[0];
+                  const dayNum = day.getDate();
+                  const weekdayName = day.toLocaleDateString("en-US", { weekday: "narrow" });
+
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => setSelectedDate(dateStr)}
+                      className={`py-2 rounded-xl text-center flex flex-col items-center justify-center transition ${
+                        isSelected 
+                          ? "bg-[#007000] text-white shadow-sm font-bold scale-105 z-10" 
+                          : "hover:bg-muted text-foreground"
+                      }`}
+                    >
+                      <span className={`text-[9px] ${isSelected ? "text-white/80" : "text-muted-foreground"} uppercase font-semibold`}>
+                        {weekdayName}
+                      </span>
+                      <span className="text-xs mt-0.5 font-display font-black">
+                        {dayNum}
+                      </span>
+                      {isToday && !isSelected && (
+                        <span className="h-1 w-1 rounded-full bg-[#007000] mt-0.5" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Daily Menu Schedule */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
+                  <span>Daily Schedule</span>
+                  <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full font-semibold">
+                    {new Date(selectedDate).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+                  </span>
+                </h3>
+
+                {/* Batch Add to Cart */}
+                {dailyPlans.length > 0 && (
+                  <button
+                    onClick={addAllPlannedToCart}
+                    className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-500/10 hover:bg-amber-500/15 px-2.5 py-1 rounded-full transition active:scale-95"
+                  >
+                    <ShoppingCart className="h-3.5 w-3.5" />
+                    <span>All to Cart</span>
+                  </button>
+                )}
+              </div>
+
+              {loadingMealPlans ? (
+                <div className="py-12 text-center text-xs text-muted-foreground animate-pulse">
+                  Loading schedule details...
+                </div>
+              ) : dailyPlans.length === 0 ? (
+                <div className="rounded-3xl border border-dashed border-border bg-card/45 py-12 text-center">
+                  <p className="text-xs text-muted-foreground">No dishes scheduled for this date.</p>
+                  <button 
+                    onClick={() => setActiveTab("corner")}
+                    className="mt-3 text-[11px] font-bold text-[#007000] hover:underline"
+                  >
+                    + Add a recipe from Chef's Corner
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {dailyPlans.map((plan) => {
+                    const recipe = plan.recipeDetails;
+                    return (
+                      <div 
+                        key={plan.id}
+                        className="rounded-2xl border border-border bg-card p-3 shadow-sm hover:border-[#007000]/25 transition duration-200 flex flex-col gap-3 relative"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex gap-3">
+                            <div className="h-14 w-14 rounded-xl overflow-hidden bg-muted flex-shrink-0">
+                              <img 
+                                src={recipe.image} 
+                                alt={recipe.title} 
+                                className="h-full w-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.src = "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop&q=60";
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <p className="text-[10px] uppercase font-bold text-primary tracking-wider">{recipe.category}</p>
+                              <h4 className="text-xs font-bold text-foreground mt-0.5 capitalize leading-tight line-clamp-1">{recipe.title}</h4>
+                              <p className="text-[9px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                                <span>{recipe.time}</span>
+                                <span>·</span>
+                                <span className="text-amber-500 font-bold">{recipe.calories}</span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => addRecipeIngredientsToCart(recipe)}
+                              className="p-2 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground hover:text-amber-500 active:scale-95 transition"
+                              title="Add Ingredients to Cart"
+                            >
+                              <ShoppingCart className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => deleteMealPlanMutation.mutate(plan.id)}
+                              className="p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 active:scale-95 transition"
+                              title="Remove from Schedule"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* AI steps inline generator button */}
+                        <div className="mt-1 border-t border-border/40 pt-2">
+                          <button
+                            onClick={() => {
+                              setSelectedRecipe(recipe);
+                              handleAiAnalysis(recipe);
+                            }}
+                            className="w-full py-2 rounded-xl bg-gradient-gold text-gold-foreground text-[10px] font-bold flex items-center justify-center gap-1 shadow-sm active:scale-95 transition"
+                          >
+                            <Sparkles className="h-3.5 w-3.5" />
+                            <span>Analyze quantity & steps with AI</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
-          ))}
 
-          {filteredRecipes.length === 0 && (
-            <div className="col-span-2 rounded-2xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
-              No matching recipes found. Try another search or create your own!
-            </div>
-          )}
-        </div>
+          </div>
+        )}
+
       </div>
 
-      {/* RECIPE DETAIL DIALOG MODAL */}
-      {selectedRecipe && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md overflow-y-auto">
-          <div className="relative w-full max-w-lg rounded-3xl border border-border bg-gradient-card shadow-glow overflow-hidden max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-200">
-            {/* Close Button */}
-            <button 
-              onClick={() => setSelectedRecipe(null)}
-              className="absolute right-4 top-4 z-10 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition"
-            >
-              <X className="h-4 w-4" />
-            </button>
-
-            {/* Recipe Image Banner */}
-            <div className="relative h-48 sm:h-56 shrink-0 bg-muted">
-              <img src={selectedRecipe.image} alt={selectedRecipe.title} className="h-full w-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-              <div className="absolute bottom-4 left-4 right-4">
-                <span className="rounded-full bg-emerald-500 text-white px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider">
-                  {selectedRecipe.category}
-                </span>
-                <h2 className="mt-2 font-display text-xl sm:text-2xl font-bold text-white leading-tight">
-                  {selectedRecipe.title}
-                </h2>
-              </div>
-            </div>
-
-            {/* Scrollable details */}
-            <div className="p-5 overflow-y-auto flex-1 space-y-5 text-sm">
-              {/* Info grid */}
-              <div className="grid grid-cols-4 gap-2 text-center">
-                <div className="bg-card/60 border border-border/60 rounded-xl p-2">
-                  <Flame className="h-4 w-4 mx-auto text-orange-500 mb-1" />
-                  <span className="text-[10px] text-muted-foreground block">Calories</span>
-                  <span className="font-bold text-xs">{selectedRecipe.calories}</span>
-                </div>
-                <div className="bg-card/60 border border-border/60 rounded-xl p-2">
-                  <span className="text-[10px] text-muted-foreground block mb-1">Protein</span>
-                  <span className="font-bold text-xs text-indigo-400">{selectedRecipe.protein}</span>
-                </div>
-                <div className="bg-card/60 border border-border/60 rounded-xl p-2">
-                  <span className="text-[10px] text-muted-foreground block mb-1">Fat</span>
-                  <span className="font-bold text-xs text-amber-500">{selectedRecipe.fat}</span>
-                </div>
-                <div className="bg-card/60 border border-border/60 rounded-xl p-2">
-                  <span className="text-[10px] text-muted-foreground block mb-1">Carbs</span>
-                  <span className="font-bold text-xs text-emerald-500">{selectedRecipe.carbs}</span>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleAiAnalysis(selectedRecipe)}
-                  className="flex-1 py-3 rounded-2xl bg-gradient-gold text-gold-foreground font-semibold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Analyze with AI
-                </button>
-                <button
-                  onClick={() => handleAddToCart(selectedRecipe)}
-                  className="py-3 px-4 rounded-2xl bg-primary text-primary-foreground font-semibold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition"
-                >
-                  <ShoppingCart className="h-4 w-4" />
-                  Add to Cart
-                </button>
-                <button
-                  onClick={() => handleAddToCalendar(selectedRecipe, selectedDate)}
-                  className="py-3 px-4 rounded-2xl bg-card border border-border hover:bg-muted text-foreground font-semibold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition"
-                >
-                  <Calendar className="h-4 w-4" />
-                  Schedule
-                </button>
-              </div>
-
-              {/* Gemini AI response panel */}
-              {analyzingRecipeId === selectedRecipe.id && (
-                <div className="bg-emerald-950/20 border border-emerald-500/20 rounded-2xl p-4 text-center animate-pulse flex flex-col items-center">
-                  <Sparkles className="h-6 w-6 text-gold animate-spin mb-2" />
-                  <p className="text-xs font-bold text-emerald-400">Analyzing with Gemini...</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">Generating precise cooking steps and water measurements</p>
-                </div>
-              )}
-
-              {aiAnalysis && (
-                <div className="bg-emerald-950/20 border border-emerald-500/20 rounded-2xl p-4 space-y-3 animate-in slide-in-from-top-4 duration-300">
-                  <div className="flex items-center justify-between border-b border-border/40 pb-2">
-                    <div className="flex items-center gap-1.5 text-gold text-xs font-bold">
-                      <Sparkles className="h-3.5 w-3.5" />
-                      <span>Gemini Cooking Assistant</span>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground">AI Plan</span>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <span className="text-muted-foreground block text-[10px]">Water Needed</span>
-                      <span className="font-semibold text-emerald-400">{aiAnalysis.water}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[10px]">Total Cook Time</span>
-                      <span className="font-semibold text-amber-400">{aiAnalysis.time}</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 pt-2">
-                    <p className="text-xs font-bold text-foreground">Precise Steps (with weights):</p>
-                    <ol className="space-y-1.5 list-decimal list-inside text-xs leading-relaxed text-muted-foreground">
-                      {aiAnalysis.steps.map((step, idx) => (
-                        <li key={idx} className="pl-1">
-                          <span className="text-foreground">{step}</span>
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                </div>
-              )}
-
-              {/* Ingredients List */}
-              <div className="space-y-2">
-                <h3 className="font-display font-semibold text-base">Ingredients needed</h3>
-                <div className="divide-y divide-border/40">
-                  {selectedRecipe.ingredients.map((ing) => (
-                    <div key={ing.id} className="flex justify-between py-2 items-center">
-                      <span className="font-medium text-foreground">{ing.name}</span>
-                      <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-md font-bold">
-                        {ing.qty} {ing.unit}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Standard Instructions */}
-              <div className="space-y-2">
-                <h3 className="font-display font-semibold text-base">Instructions</h3>
-                <ol className="space-y-2 list-decimal list-inside leading-relaxed text-muted-foreground">
-                  {selectedRecipe.instructions.map((step, idx) => (
-                    <li key={idx} className="pl-1">
-                      <span className="text-foreground">{step}</span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* CUSTOM RECIPE ADD MODAL */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md overflow-y-auto">
-          <div className="relative w-full max-w-lg rounded-[2.5rem] border border-border bg-gradient-card shadow-glow overflow-hidden max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200">
-            {/* Header */}
-            <div className="p-6 border-b border-border/50 flex justify-between items-center shrink-0">
-              <div>
-                <h2 className="font-display text-xl font-bold flex items-center gap-1.5">
-                  <Plus className="h-5 w-5 text-primary" />
-                  <span>Create Custom Recipe</span>
-                </h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Add to your custom recipe vault</p>
-              </div>
+      {/* Modal: Create Custom Recipe */}
+      {showAddRecipeModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-foreground/45 backdrop-blur-sm p-0 sm:p-4" onClick={() => setShowAddRecipeModal(false)}>
+          <form 
+            onSubmit={handleCreateRecipe}
+            onClick={(e) => e.stopPropagation()} 
+            className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-card border border-border/80 shadow-glow p-5 flex flex-col max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom duration-200"
+          >
+            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-muted block sm:hidden" />
+            
+            <div className="flex items-center justify-between pb-3 border-b border-border/50">
+              <h3 className="font-display text-base font-extrabold text-foreground flex items-center gap-1.5">
+                <Plus className="h-4.5 w-4.5 text-[#007000]" />
+                <span>Create Custom Recipe</span>
+              </h3>
               <button 
-                onClick={() => setShowAddModal(false)}
-                className="p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition"
+                type="button"
+                onClick={() => setShowAddRecipeModal(false)} 
+                className="rounded-xl border border-border bg-muted/40 p-1.5 text-muted-foreground hover:text-foreground active:scale-95 transition"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Scrollable Form */}
-            <form onSubmit={handleCreateRecipe} className="p-6 overflow-y-auto flex-1 space-y-4 text-sm">
-              {/* Title */}
+            <div className="space-y-3.5 mt-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Recipe Title</label>
+                <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Recipe Title</label>
                 <input 
                   type="text" 
+                  placeholder="e.g. Garlic Butter Paneer" 
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  className="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-border bg-card text-xs focus:border-[#007000] focus:outline-none text-foreground"
                   required
-                  placeholder="e.g. Grandma's Kadhi"
-                  value={customTitle}
-                  onChange={(e) => setCustomTitle(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-card px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
 
-              {/* Category & Time */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Category</label>
+                  <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Category</label>
                   <select 
-                    value={customCategory}
-                    onChange={(e) => setCustomCategory(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-card px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                    className="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-border bg-card text-xs focus:border-[#007000] focus:outline-none text-foreground"
                   >
-                    {categories.filter(c => c !== "All").map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
+                    <option>Breakfast</option>
+                    <option>Lunch</option>
+                    <option>Dinner</option>
+                    <option>Indian Favorites</option>
+                    <option>Global Favorites</option>
+                    <option>Desserts</option>
+                    <option>Drinks</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Prep/Cook Time</label>
+                  <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Time (minutes)</label>
                   <input 
                     type="text" 
-                    required
-                    placeholder="e.g. 20 min"
-                    value={customTime}
-                    onChange={(e) => setCustomTime(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-card px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    placeholder="e.g. 25 min" 
+                    value={newTime}
+                    onChange={(e) => setNewTime(e.target.value)}
+                    className="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-border bg-card text-xs focus:border-[#007000] focus:outline-none text-foreground"
                   />
                 </div>
               </div>
 
-              {/* Calories & Serves */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Calories (kcal)</label>
+                  <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Servings</label>
                   <input 
                     type="number" 
-                    required
-                    placeholder="e.g. 350"
-                    value={customCalories}
-                    onChange={(e) => setCustomCalories(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-card px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    value={newServes}
+                    onChange={(e) => setNewServes(Number(e.target.value))}
+                    className="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-border bg-card text-xs focus:border-[#007000] focus:outline-none text-foreground"
+                    min={1}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Serves</label>
+                  <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Calories</label>
                   <input 
-                    type="number" 
-                    value={customServes}
-                    onChange={(e) => setCustomServes(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-card px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    type="text" 
+                    placeholder="e.g. 350 kcal" 
+                    value={newCalories}
+                    onChange={(e) => setNewCalories(e.target.value)}
+                    className="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-border bg-card text-xs focus:border-[#007000] focus:outline-none text-foreground"
                   />
                 </div>
               </div>
 
-              {/* Macros (Protein, Fat, Carbs) */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Macros (Optional)</label>
-                <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">Protein (g)</label>
                   <input 
-                    type="number" 
-                    placeholder="Protein (g)"
-                    value={customProtein}
-                    onChange={(e) => setCustomProtein(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    type="text" 
+                    placeholder="e.g. 15g" 
+                    value={newProtein}
+                    onChange={(e) => setNewProtein(e.target.value)}
+                    className="w-full mt-1 px-2.5 py-2 rounded-xl border border-border bg-card text-xs focus:border-[#007000] focus:outline-none text-foreground"
                   />
+                </div>
+                <div>
+                  <label className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">Fats (g)</label>
                   <input 
-                    type="number" 
-                    placeholder="Fat (g)"
-                    value={customFat}
-                    onChange={(e) => setCustomFat(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    type="text" 
+                    placeholder="e.g. 12g" 
+                    value={newFat}
+                    onChange={(e) => setNewFat(e.target.value)}
+                    className="w-full mt-1 px-2.5 py-2 rounded-xl border border-border bg-card text-xs focus:border-[#007000] focus:outline-none text-foreground"
                   />
+                </div>
+                <div>
+                  <label className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">Carbs (g)</label>
                   <input 
-                    type="number" 
-                    placeholder="Carbs (g)"
-                    value={customCarbs}
-                    onChange={(e) => setCustomCarbs(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    type="text" 
+                    placeholder="e.g. 40g" 
+                    value={newCarbs}
+                    onChange={(e) => setNewCarbs(e.target.value)}
+                    className="w-full mt-1 px-2.5 py-2 rounded-xl border border-border bg-card text-xs focus:border-[#007000] focus:outline-none text-foreground"
                   />
                 </div>
               </div>
 
-              {/* Image URL */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">Image URL</label>
+                <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Image URL (Optional)</label>
                 <input 
-                  type="url" 
-                  placeholder="https://example.com/photo.jpg"
-                  value={customImage}
-                  onChange={(e) => setCustomImage(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-card px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  type="text" 
+                  placeholder="Paste URL starting with https://..." 
+                  value={newImage}
+                  onChange={(e) => setNewImage(e.target.value)}
+                  className="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-border bg-card text-xs focus:border-[#007000] focus:outline-none text-foreground"
                 />
               </div>
 
-              {/* Ingredients List inputs */}
-              <div className="space-y-2">
+              {/* Form Ingredients editor */}
+              <div className="space-y-2 border-t border-border/40 pt-3">
                 <div className="flex justify-between items-center">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">Ingredients</label>
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Ingredients</span>
                   <button 
                     type="button" 
-                    onClick={handleAddIngredientRow}
-                    className="text-xs text-primary font-semibold flex items-center gap-0.5 hover:underline"
+                    onClick={addIngredientField}
+                    className="text-[10px] font-bold text-[#007000] hover:underline"
                   >
-                    <Plus className="h-3 w-3" /> Add Item
+                    + Add Ingredient
                   </button>
                 </div>
-                
-                <div className="space-y-2">
-                  {ingredientsInput.map((item, idx) => (
-                    <div key={idx} className="flex gap-2 items-center">
+                <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1">
+                  {ingredients.map((ing, idx) => (
+                    <div key={ing.id} className="flex gap-2 items-center">
                       <input 
                         type="text" 
-                        required
-                        placeholder="Ingredient name"
-                        value={item.name}
-                        onChange={(e) => {
-                          const updated = [...ingredientsInput];
-                          updated[idx].name = e.target.value;
-                          setIngredientsInput(updated);
-                        }}
-                        className="flex-1 rounded-xl border border-border bg-card px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        placeholder="Ingredient name" 
+                        value={ing.name}
+                        onChange={(e) => updateIngredientField(idx, "name", e.target.value)}
+                        className="flex-1 px-2.5 py-2 rounded-xl border border-border bg-card text-xs focus:outline-none focus:border-[#007000] text-foreground"
                       />
                       <input 
                         type="number" 
-                        required
-                        placeholder="Qty"
-                        value={item.qty}
-                        onChange={(e) => {
-                          const updated = [...ingredientsInput];
-                          updated[idx].qty = e.target.value;
-                          setIngredientsInput(updated);
-                        }}
-                        className="w-16 rounded-xl border border-border bg-card px-2 py-2 text-xs text-center focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        placeholder="Qty" 
+                        value={ing.qty}
+                        onChange={(e) => updateIngredientField(idx, "qty", Number(e.target.value))}
+                        className="w-16 px-2.5 py-2 rounded-xl border border-border bg-card text-xs focus:outline-none focus:border-[#007000] text-foreground"
                       />
-                      <select
-                        value={item.unit}
-                        onChange={(e) => {
-                          const updated = [...ingredientsInput];
-                          updated[idx].unit = e.target.value;
-                          setIngredientsInput(updated);
-                        }}
-                        className="w-16 rounded-xl border border-border bg-card px-1 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      <input 
+                        type="text" 
+                        placeholder="Unit" 
+                        value={ing.unit || "g"}
+                        onChange={(e) => updateIngredientField(idx, "unit", e.target.value)}
+                        className="w-12 px-2.5 py-2 rounded-xl border border-border bg-card text-xs focus:outline-none focus:border-[#007000] text-foreground"
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => removeIngredientField(idx)}
+                        className="text-red-500 hover:text-red-600 p-1.5"
                       >
-                        <option value="g">g</option>
-                        <option value="ml">ml</option>
-                        <option value="pcs">pcs</option>
-                        <option value="tsp">tsp</option>
-                        <option value="tbsp">tbsp</option>
-                      </select>
-                      {ingredientsInput.length > 1 && (
-                        <button 
-                          type="button" 
-                          onClick={() => handleRemoveIngredientRow(idx)}
-                          className="p-2 text-muted-foreground hover:text-destructive transition"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      )}
+                        <X className="h-4 w-4" />
+                      </button>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Instructions steps inputs */}
-              <div className="space-y-2">
+              {/* Form Instructions Steps Editor */}
+              <div className="space-y-2 border-t border-border/40 pt-3">
                 <div className="flex justify-between items-center">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">Instructions (Steps)</label>
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Instructions Steps</span>
                   <button 
                     type="button" 
-                    onClick={handleAddInstructionRow}
-                    className="text-xs text-primary font-semibold flex items-center gap-0.5 hover:underline"
+                    onClick={addInstructionField}
+                    className="text-[10px] font-bold text-[#007000] hover:underline"
                   >
-                    <Plus className="h-3 w-3" /> Add Step
+                    + Add Step
                   </button>
                 </div>
-                
-                <div className="space-y-2">
-                  {instructionsInput.map((step, idx) => (
+                <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1">
+                  {instructions.map((step, idx) => (
                     <div key={idx} className="flex gap-2 items-start">
-                      <span className="mt-2 text-xs text-muted-foreground font-bold shrink-0">{idx + 1}.</span>
-                      <textarea
-                        required
-                        placeholder="e.g. Boil water and add salt..."
-                        rows={2}
+                      <span className="text-xs font-bold text-[#007000] mt-2.5">{idx + 1}.</span>
+                      <textarea 
+                        placeholder={`Step ${idx + 1} details...`}
                         value={step}
-                        onChange={(e) => {
-                          const updated = [...instructionsInput];
-                          updated[idx] = e.target.value;
-                          setInstructionsInput(updated);
-                        }}
-                        className="flex-1 rounded-xl border border-border bg-card px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                        onChange={(e) => updateInstructionField(idx, e.target.value)}
+                        className="flex-1 px-2.5 py-2 rounded-xl border border-border bg-card text-xs focus:outline-none focus:border-[#007000] text-foreground resize-none h-12"
                       />
-                      {instructionsInput.length > 1 && (
-                        <button 
-                          type="button" 
-                          onClick={() => handleRemoveInstructionRow(idx)}
-                          className="p-2 mt-1 text-muted-foreground hover:text-destructive transition"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      )}
+                      <button 
+                        type="button" 
+                        onClick={() => removeInstructionField(idx)}
+                        className="text-red-500 hover:text-red-600 p-1.5 mt-1"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={createRecipeMutation.isPending}
+              className="w-full mt-5 rounded-2xl bg-gradient-hero py-3.5 font-display font-bold text-xs text-white shadow-glow active:scale-95 transition disabled:opacity-50"
+            >
+              {createRecipeMutation.isPending ? "Saving..." : "Save Recipe to Database"}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Modal: Recipe Detail & AI Prep Viewer */}
+      {selectedRecipe && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-foreground/45 backdrop-blur-sm p-0 sm:p-4" onClick={() => { setSelectedRecipe(null); setAiAnalysis(null); }}>
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-card border border-border/80 shadow-glow p-5 flex flex-col max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom duration-200 text-foreground"
+          >
+            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-muted block sm:hidden" />
+            
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[9px] uppercase tracking-wider bg-[#007000] text-white px-2.5 py-0.5 rounded-md font-bold">
+                  {selectedRecipe.category}
+                </span>
+                <p className="font-display text-lg font-extrabold mt-1.5 capitalize text-foreground">{selectedRecipe.title}</p>
+              </div>
+              <button 
+                onClick={() => { setSelectedRecipe(null); setAiAnalysis(null); }} 
+                className="rounded-xl border border-border bg-muted/40 p-1.5 text-muted-foreground hover:text-foreground active:scale-95 transition"
+              >
+                <X className="h-4.5 w-4.5" />
+              </button>
+            </div>
+
+            {/* Image Hero Frame */}
+            <div className="mt-4 aspect-video w-full overflow-hidden rounded-2xl border border-border bg-muted flex items-center justify-center relative">
+              <img 
+                src={selectedRecipe.image} 
+                alt={selectedRecipe.title} 
+                className="h-full w-full object-cover" 
+                onError={(e) => {
+                  e.currentTarget.src = "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop&q=60";
+                }}
+              />
+            </div>
+
+            {/* Quick Stats Grid */}
+            <div className="grid grid-cols-4 gap-2 text-center text-[10px] mt-4 border-b border-border/50 pb-3">
+              <div className="rounded-xl border border-border bg-muted/30 py-2">
+                <p className="text-muted-foreground font-semibold">Cooking</p>
+                <p className="font-bold text-foreground mt-0.5">{selectedRecipe.time}</p>
+              </div>
+              <div className="rounded-xl border border-border bg-muted/30 py-2">
+                <p className="text-muted-foreground font-semibold">Calories</p>
+                <p className="font-bold text-amber-500 mt-0.5">{selectedRecipe.calories}</p>
+              </div>
+              <div className="rounded-xl border border-border bg-muted/30 py-2">
+                <p className="text-muted-foreground font-semibold">Serves</p>
+                <p className="font-bold text-foreground mt-0.5">{selectedRecipe.serves}</p>
+              </div>
+              <div className="rounded-xl border border-[#007000]/20 bg-[#007000]/5 py-2">
+                <p className="text-[#007000] font-bold">Protein</p>
+                <p className="font-extrabold text-[#007000] mt-0.5">{selectedRecipe.protein}</p>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              
+              {/* Ingredients List */}
+              <div>
+                <p className="text-xs font-extrabold text-foreground mb-2 flex items-center gap-1.5">
+                  <ShoppingCart className="h-4 w-4 text-[#007000]" />
+                  <span>Ingredients List:</span>
+                </p>
+                <ul className="space-y-1.5">
+                  {selectedRecipe.ingredients.map((ing, idx) => (
+                    <li key={idx} className="flex justify-between items-center text-xs text-muted-foreground py-1 border-b border-border/30 last:border-0">
+                      <span className="capitalize">{ing.name}</span>
+                      <span className="font-bold text-foreground">{ing.qty} {ing.unit || "g"}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Cooking Instructions Steps */}
+              <div>
+                <p className="text-xs font-extrabold text-foreground mb-2 flex items-center gap-1.5">
+                  <Info className="h-4 w-4 text-[#007000]" />
+                  <span>Preparation Steps:</span>
+                </p>
+                <div className="space-y-2">
+                  {selectedRecipe.instructions.map((step, idx) => (
+                    <div key={idx} className="flex gap-2 text-xs text-muted-foreground leading-relaxed">
+                      <span className="font-bold text-[#007000] min-w-[15px]">{idx + 1}.</span>
+                      <span>{step}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Form submit */}
+              {/* Gemini AI Cooking Analysis Block */}
+              <div className="border-t border-border/50 pt-4">
+                <div className="flex justify-between items-center mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="h-4.5 w-4.5 text-amber-500 animate-pulse" />
+                    <span className="text-xs font-extrabold text-foreground">Gemini AI Culinary Helper</span>
+                  </div>
+                  {!aiAnalysis && !analyzingRecipeId && (
+                    <button
+                      onClick={() => handleAiAnalysis(selectedRecipe)}
+                      className="text-[10px] font-bold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-md hover:bg-amber-500/15"
+                    >
+                      Analyze now
+                    </button>
+                  )}
+                </div>
+
+                {analyzingRecipeId === selectedRecipe.id ? (
+                  <div className="p-3 bg-muted/40 border border-dashed border-border rounded-xl text-center text-xs text-muted-foreground animate-pulse">
+                    Analyzing ingredients & volumes with Gemini API...
+                  </div>
+                ) : aiAnalysis ? (
+                  <div className="p-3.5 bg-gradient-gold border border-gold/30 rounded-2xl space-y-2.5 animate-in fade-in duration-200">
+                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                      <div>
+                        <span className="text-muted-foreground font-semibold">Water Needed:</span>
+                        <span className="ml-1 font-bold text-foreground">{aiAnalysis.water}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground font-semibold">Cooking Time:</span>
+                        <span className="ml-1 font-bold text-foreground">{aiAnalysis.time}</span>
+                      </div>
+                    </div>
+                    <div className="border-t border-border/30 pt-2 space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-[#007000] tracking-wider">Inline Qty Cooking Steps:</p>
+                      {aiAnalysis.steps.map((step: string, idx: number) => (
+                        <div key={idx} className="flex gap-2 text-[11px] text-muted-foreground leading-relaxed">
+                          <span className="font-bold text-amber-500">{idx + 1}.</span>
+                          <span>{step}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">
+                    Click analyze to estimate cooking water levels and inline quantities using Google Gemini.
+                  </p>
+                )}
+              </div>
+
+              {/* Single Add to Cart Action */}
               <button
-                type="submit"
-                className="w-full py-4 mt-4 rounded-2xl bg-gradient-hero text-primary-foreground font-display font-semibold shadow-glow active:scale-95 transition"
+                onClick={() => addRecipeIngredientsToCart(selectedRecipe)}
+                className="w-full rounded-2xl bg-gradient-hero py-3 font-display font-bold text-xs text-white shadow-glow active:scale-95 transition mt-2 flex items-center justify-center gap-1.5"
               >
-                Create & Save Recipe
+                <ShoppingCart className="h-4 w-4" />
+                <span>Add Ingredients to Shopping Cart</span>
               </button>
-            </form>
+            </div>
           </div>
         </div>
       )}
