@@ -15,8 +15,14 @@ import {
 } from "@/hooks/useCulinary";
 import { STATIC_AI_ANALYSIS } from "@/lib/recipeData";
 import type { Recipe, Ingredient } from "@/types";
+import { z } from "zod";
+
+const recipesSearchSchema = z.object({
+  tab: z.enum(["corner", "planner"]).optional(),
+});
 
 export const Route = createFileRoute("/recipes")({
+  validateSearch: (search) => recipesSearchSchema.parse(search),
   head: () => ({ meta: [{ title: "Meal Planner & Chef's Corner — PulsePeak" }] }),
   component: RecipesPage,
 });
@@ -29,8 +35,23 @@ function RecipesPage() {
   const addMealPlanMutation = useAddMealPlan();
   const deleteMealPlanMutation = useDeleteMealPlan();
 
+  const search = Route.useSearch();
+  const searchTab = search.tab || "corner";
+
   // Tab State
-  const [activeTab, setActiveTab] = useState<"corner" | "planner">("corner");
+  const [activeTab, setActiveTabState] = useState<"corner" | "planner">(searchTab);
+
+  // Sync activeTab with URL tab parameter
+  useEffect(() => {
+    setActiveTabState(searchTab);
+  }, [searchTab]);
+
+  const navigate = Route.useNavigate();
+  const setActiveTab = (newTab: "corner" | "planner") => {
+    navigate({ search: { tab: newTab } });
+    setActiveTabState(newTab);
+  };
+
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -72,7 +93,13 @@ function RecipesPage() {
   const [weekDays, setWeekDays] = useState<Date[]>([]);
 
   useEffect(() => {
-    const current = new Date(selectedDate);
+    const parts = selectedDate.split("-");
+    if (parts.length !== 3) return;
+    const current = new Date(
+      parseInt(parts[0], 10),
+      parseInt(parts[1], 10) - 1,
+      parseInt(parts[2], 10)
+    );
     const dayOfWeek = current.getDay(); // 0 is Sunday, 1 is Monday
     // Calculate Monday
     const monday = new Date(current);
@@ -335,48 +362,8 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
 
       <ScreenHeader 
         title={activeTab === "corner" ? "Chef's Corner" : "Meal Planner"} 
-        subtitle="Plan delicious, macro-balanced meals" 
-        action={
-          activeTab === "planner" && (
-            <button
-              onClick={() => setActiveTab("corner")}
-              className="flex items-center gap-1 text-xs font-bold text-[#007000] hover:underline"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              <span>Chef's Corner</span>
-            </button>
-          )
-        }
+        subtitle={activeTab === "corner" ? "Plan delicious, macro-balanced meals" : "Weekly Schedule & Plans"} 
       />
-
-      {/* Tabs Switcher - Only shown on Chef's Corner tab */}
-      {activeTab === "corner" && (
-        <div className="mx-5 mt-4 grid grid-cols-2 gap-1 rounded-2xl bg-muted p-1 border border-border/80">
-          <button
-            onClick={() => {
-              setActiveTab("corner");
-              setSelectedCategory("All");
-            }}
-            className={`py-2 rounded-xl text-xs font-bold transition duration-200 active:scale-95 ${
-              activeTab === "corner"
-                ? "bg-[#007000] text-white shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Chef's Corner
-          </button>
-          <button
-            onClick={() => setActiveTab("planner")}
-            className={`py-2 rounded-xl text-xs font-bold transition duration-200 active:scale-95 ${
-              activeTab === "planner"
-                ? "bg-[#007000] text-white shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Meal Planner
-          </button>
-        </div>
-      )}
 
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto px-5 pt-4 pb-28">
@@ -573,46 +560,18 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
                   ))}
                 </div>
 
-                {/* Moving Showcase: Carousel of recipe images. Hovering or clicking displays the name. */}
-                <div className="space-y-2 py-3 border-y border-border/60 my-2 overflow-hidden">
+                {/* Trending Recipes: Swipeable horizontal showcase of recipe images. Hovering or clicking displays the name. */}
+                <div className="space-y-2 py-3 border-y border-border/60 my-2">
                   <div className="flex items-center justify-between px-1">
                     <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                      Spotlight Selection
+                      Trending Recipes
                     </h3>
-                    <span className="text-[9px] text-amber-500 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded-full animate-pulse">
-                      Roll View
-                    </span>
                   </div>
                   <div className="relative w-full overflow-hidden rounded-2xl bg-muted/40 p-2">
-                    <div className="animate-marquee gap-3 hover:[animation-play-state:paused] flex">
+                    <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                       {recipes.slice(0, 6).map((recipe) => (
                         <div 
                           key={recipe.id}
-                          onClick={() => {
-                            setSelectedRecipe(recipe);
-                            setAiAnalysis(STATIC_AI_ANALYSIS[recipe.id] || null);
-                          }}
-                          className="relative w-28 h-20 rounded-xl overflow-hidden cursor-pointer group shadow-sm flex-shrink-0 border border-border"
-                        >
-                          <img 
-                            src={recipe.image} 
-                            alt={recipe.title} 
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                          />
-                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center p-1.5 transition-opacity text-center">
-                            <span className="text-[9px] text-white font-bold whitespace-normal leading-tight">
-                              {recipe.title}
-                            </span>
-                          </div>
-                          <div className="absolute bottom-0 inset-x-0 bg-black/65 py-1 text-center group-hover:hidden transition-all">
-                            <p className="text-[8px] text-white font-bold truncate px-1">{recipe.title}</p>
-                          </div>
-                        </div>
-                      ))}
-                      {/* Duplicate for infinite effect */}
-                      {recipes.slice(0, 6).map((recipe) => (
-                        <div 
-                          key={`${recipe.id}-dup`}
                           onClick={() => {
                             setSelectedRecipe(recipe);
                             setAiAnalysis(STATIC_AI_ANALYSIS[recipe.id] || null);
@@ -748,18 +707,20 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
         {activeTab === "planner" && (
           <div className="space-y-5">
             
-            {/* Weekly Header Calendar Selector */}
-            <div className="space-y-2">
+            {/* Weekly Header Calendar Selector Card */}
+            <div className="rounded-3xl border border-zinc-200/70 bg-card p-5 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-bold">
-                  Weekly Schedule
-                </h3>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-[#007000]" />
+                  <h3 className="text-sm font-bold text-foreground">
+                    Weekly Schedule
+                  </h3>
+                </div>
                 <div className="relative">
                   <button
                     onClick={() => setShowDatePicker(true)}
-                    className="flex items-center gap-1 text-[11px] font-bold text-[#007000] bg-[#007000]/10 hover:bg-[#007000]/15 px-2.5 py-1 rounded-full transition"
+                    className="flex items-center gap-1 text-[11px] font-semibold text-[#007000] bg-[#007000]/10 hover:bg-[#007000]/15 px-3 py-1 rounded-full border border-[#007000]/20 transition duration-200 active:scale-95 cursor-pointer"
                   >
-                    <Calendar className="h-3 w-3" />
                     <span>Pick Date</span>
                   </button>
                   {showDatePicker && (
@@ -779,36 +740,53 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
               </div>
 
               {/* Monday to Sunday Calendar Grid */}
-              <div className="grid grid-cols-7 gap-1 bg-card border border-border p-1.5 rounded-2xl shadow-sm">
+              <div className="grid grid-cols-7 gap-2">
                 {weekDays.map((day, idx) => {
-                  const dateStr = day.toISOString().split("T")[0];
+                  const y = day.getFullYear();
+                  const m = String(day.getMonth() + 1).padStart(2, "0");
+                  const d = String(day.getDate()).padStart(2, "0");
+                  const dateStr = `${y}-${m}-${d}`;
+                  
                   const isSelected = dateStr === selectedDate;
-                  const isToday = dateStr === new Date().toISOString().split("T")[0];
+                  const todayObj = new Date();
+                  const todayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, "0")}-${String(todayObj.getDate()).padStart(2, "0")}`;
+                  const isToday = dateStr === todayStr;
                   const dayNum = day.getDate();
-                  const weekdayName = day.toLocaleDateString("en-US", { weekday: "narrow" });
+                  const weekdayName = day.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
 
                   return (
                     <button
                       key={idx}
                       onClick={() => setSelectedDate(dateStr)}
-                      className={`py-2 rounded-xl text-center flex flex-col items-center justify-center transition ${
+                      className={`py-3.5 rounded-full text-center flex flex-col items-center justify-center transition duration-200 active:scale-95 relative ${
                         isSelected 
-                          ? "bg-[#007000] text-white shadow-sm font-bold scale-105 z-10" 
-                          : "hover:bg-muted text-foreground"
+                          ? "bg-[#007000] text-white shadow-md font-bold scale-105 z-10" 
+                          : "bg-white border border-zinc-150 text-foreground hover:bg-zinc-50 shadow-sm"
                       }`}
+                      style={{ aspectRatio: "0.75" }}
                     >
-                      <span className={`text-[9px] ${isSelected ? "text-white/80" : "text-muted-foreground"} uppercase font-semibold`}>
+                      <span className={`text-[8px] tracking-wider ${isSelected ? "text-white/80" : "text-muted-foreground"} font-bold`}>
                         {weekdayName}
                       </span>
-                      <span className="text-xs mt-0.5 font-display font-black">
+                      <span className="text-sm mt-1 font-display font-extrabold">
                         {dayNum}
                       </span>
-                      {isToday && !isSelected && (
-                        <span className="h-1 w-1 rounded-full bg-[#007000] mt-0.5" />
+                      {isSelected && (
+                        <span className="h-1 w-1 rounded-full bg-white mt-1" />
+                      )}
+                      {!isSelected && isToday && (
+                        <span className="absolute bottom-1 h-1 w-1 rounded-full bg-[#007000]" />
                       )}
                     </button>
                   );
                 })}
+              </div>
+
+              {/* Center the text "Selected Day: May 19, 2026" directly below the weekday circles track */}
+              <div className="text-center pt-1">
+                <span className="text-xs text-muted-foreground font-medium">
+                  Selected Day: <span className="font-bold text-foreground">{new Date(selectedDate.replace(/-/g, '/')).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                </span>
               </div>
             </div>
 
@@ -822,16 +800,27 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
                   </span>
                 </h3>
 
-                {/* Batch Add to Cart */}
-                {dailyPlans.length > 0 && (
+                <div className="flex items-center gap-1.5">
                   <button
-                    onClick={addAllPlannedToCart}
-                    className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-500/10 hover:bg-amber-500/15 px-2.5 py-1 rounded-full transition active:scale-95"
+                    onClick={() => setActiveTab("corner")}
+                    className="flex items-center gap-1 text-[10px] font-bold text-white bg-[#007000] hover:opacity-90 active:scale-95 px-2.5 py-1 rounded-full transition shadow-sm cursor-pointer"
+                    title="Add Recipes"
                   >
-                    <ShoppingCart className="h-3.5 w-3.5" />
-                    <span>All to Cart</span>
+                    <Plus className="h-3 w-3" />
+                    <span>Add</span>
                   </button>
-                )}
+
+                  {/* Batch Add to Cart */}
+                  {dailyPlans.length > 0 && (
+                    <button
+                      onClick={addAllPlannedToCart}
+                      className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-500/10 hover:bg-[#007000]/15 px-2.5 py-1 rounded-full transition active:scale-95"
+                    >
+                      <ShoppingCart className="h-3.5 w-3.5" />
+                      <span>All to Cart</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {loadingMealPlans ? (
@@ -881,13 +870,6 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
                           </div>
 
                           <div className="flex gap-1">
-                            <button
-                              onClick={() => addRecipeIngredientsToCart(recipe)}
-                              className="p-2 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground hover:text-amber-500 active:scale-95 transition"
-                              title="Add Ingredients to Cart"
-                            >
-                              <ShoppingCart className="h-3.5 w-3.5" />
-                            </button>
                             <button
                               onClick={() => deleteMealPlanMutation.mutate(plan.id)}
                               className="p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 active:scale-95 transition"
@@ -1290,14 +1272,7 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
                 )}
               </div>
 
-              {/* Single Add to Cart Action */}
-              <button
-                onClick={() => addRecipeIngredientsToCart(selectedRecipe)}
-                className="w-full rounded-2xl bg-gradient-hero py-3 font-display font-bold text-xs text-white shadow-glow active:scale-95 transition mt-2 flex items-center justify-center gap-1.5"
-              >
-                <ShoppingCart className="h-4 w-4" />
-                <span>Add Ingredients to Shopping Cart</span>
-              </button>
+              {/* Single Add to Cart Action removed per request */}
             </div>
           </div>
         </div>

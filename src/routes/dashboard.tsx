@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { Bell, Droplet, Flame, TrendingDown, Activity, Sparkles, Utensils, Dumbbell } from "lucide-react";
+import { Bell, Droplet, Flame, TrendingDown, Activity, Sparkles, Utensils, Dumbbell, Calendar } from "lucide-react";
 import { PhoneShell, ScreenHeader } from "@/components/PhoneShell";
 import { ProgressRing, MacroBar } from "@/components/ProgressRing";
 import { useStore, useTotals } from "@/lib/store";
@@ -127,24 +127,47 @@ function Dashboard() {
         </Link>
       </div>
 
-      {/* Meal Planner + Ai Gym Exercises tiles */}
+      {/* Culinary Tiles: Chef's Corner + Meal Planner */}
       <div className="mx-5 mt-3 grid grid-cols-2 gap-3">
-        <Link to="/recipes" className="block rounded-3xl border border-border bg-gradient-card p-4 shadow-card hover:border-primary/50 transition relative group">
+        <Link 
+          to="/recipes" 
+          search={{ tab: "corner" } as any}
+          className="block rounded-3xl border border-border bg-gradient-card p-4 shadow-card hover:border-primary/50 transition relative group"
+        >
           <div className="flex items-center justify-between">
             <Utensils className="h-5 w-5 text-emerald-500" />
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground group-hover:text-primary transition">Planner →</span>
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground group-hover:text-primary transition">Recipes →</span>
           </div>
-          <p className="mt-3 font-display text-lg font-bold leading-tight">Meal Planner</p>
-          <span className="mt-1 block text-xs text-muted-foreground">Recipes & weekly plan</span>
+          <p className="mt-3 font-display text-lg font-bold leading-tight">Chef's Corner</p>
+          <span className="mt-1 block text-xs text-muted-foreground">Browse recipes & ideas</span>
         </Link>
 
-        <Link to="/exercise" className="block rounded-3xl border border-border bg-gradient-card p-4 shadow-card hover:border-primary/50 transition relative group">
+        <Link 
+          to="/recipes" 
+          search={{ tab: "planner" } as any}
+          className="block rounded-3xl border border-border bg-gradient-card p-4 shadow-card hover:border-primary/50 transition relative group"
+        >
+          <div className="flex items-center justify-between">
+            <Calendar className="h-5 w-5 text-blue-500" />
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground group-hover:text-primary transition">Weekly →</span>
+          </div>
+          <p className="mt-3 font-display text-lg font-bold leading-tight">Meal Planner</p>
+          <span className="mt-1 block text-xs text-muted-foreground">Weekly meal schedule</span>
+        </Link>
+      </div>
+
+      {/* Ai Gym Exercises full-width tile */}
+      <div className="mx-5 mt-3">
+        <Link 
+          to="/exercise" 
+          className="block rounded-3xl border border-border bg-gradient-card p-4 shadow-card hover:border-primary/50 transition relative group"
+        >
           <div className="flex items-center justify-between">
             <Dumbbell className="h-5 w-5 text-amber-500" />
             <span className="text-[10px] uppercase tracking-widest text-muted-foreground group-hover:text-primary transition">Gym →</span>
           </div>
           <p className="mt-3 font-display text-lg font-bold leading-tight">Ai Gym Exercises</p>
-          <span className="mt-1 block text-xs text-muted-foreground">Browse exercises & logs</span>
+          <span className="mt-1 block text-xs text-muted-foreground">Browse exercises & video guides</span>
         </Link>
       </div>
 
