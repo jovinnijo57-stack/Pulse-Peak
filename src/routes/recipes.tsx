@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { PhoneShell, ScreenHeader } from "@/components/PhoneShell";
 import { 
   Plus, Calendar, Search, Mic, MicOff, Clock, Sparkles, 
   Trash2, X, ChevronRight, ShoppingCart, Info, Flame, ChevronLeft,
-  Image
+  Image, SlidersHorizontal, Copy
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
@@ -14,6 +15,7 @@ import {
   useAddMealPlan, 
   useDeleteMealPlan 
 } from "@/hooks/useCulinary";
+import { supabase } from "@/lib/supabase";
 import { STATIC_AI_ANALYSIS } from "@/lib/recipeData";
 import type { Recipe, Ingredient } from "@/types";
 import { z } from "zod";
@@ -29,6 +31,7 @@ export const Route = createFileRoute("/recipes")({
 });
 
 function RecipesPage() {
+  const qc = useQueryClient();
   const { data: recipes = [], isLoading: loadingRecipes } = useRecipes();
   const { data: mealPlans = [], isLoading: loadingMealPlans } = useMealPlans();
   
@@ -55,9 +58,12 @@ function RecipesPage() {
 
   const [selectedCategory, setSelectedCategory] = useState("All");
 
-  // Search & Voice Recognition
+  // Search & Voice Recognition & Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [isListening, setIsListening] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [maxCaloriesFilter, setMaxCaloriesFilter] = useState<number | null>(null);
+  const [maxTimeFilter, setMaxTimeFilter] = useState<number | null>(null);
   const recognitionRef = useRef<any>(null);
   const datePickerRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -66,6 +72,11 @@ function RecipesPage() {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );
+
+  // Repeat recipes list to ensure marquee is sufficiently populated for smooth infinite scroll on mobile
+  const marqueeRecipes = recipes.length > 0 
+    ? Array.from({ length: Math.ceil(12 / recipes.length) }, () => recipes).flat().slice(0, 12)
+    : [];
   
   // Modals state
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
@@ -75,6 +86,14 @@ function RecipesPage() {
   // AI analysis state for the detail modal
   const [analyzingRecipeId, setAnalyzingRecipeId] = useState<string | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+
+  // Copy & Clear Planner Day States
+  const [showCopyModal, setShowCopyModal] = useState(false);
+  const [copyTargetDate, setCopyTargetDate] = useState<string>(
+    new Date(Date.now() + 86400000).toISOString().split("T")[0]
+  );
+  const [isClearingDay, setIsClearingDay] = useState(false);
+  const [isCopyingDay, setIsCopyingDay] = useState(false);
 
   // Marquee controls
   const [isMarqueePaused, setIsMarqueePaused] = useState(false);
@@ -162,11 +181,41 @@ function RecipesPage() {
                             r.category.toLowerCase() === selectedCategory.toLowerCase() ||
                             (selectedCategory === "Indian Favorites" && r.category.toLowerCase() === "indian") ||
                             (selectedCategory === "Global Favorites" && !["indian"].includes(r.category.toLowerCase()));
-    return matchesSearch && matchesCategory;
+    
+    let matchesCalories = true;
+    if (maxCaloriesFilter !== null) {
+      const kcal = parseInt(r.calories) || 0;
+      matchesCalories = kcal <= maxCaloriesFilter;
+    }
+    
+    let matchesTime = true;
+    if (maxTimeFilter !== null) {
+      const mins = parseInt(r.time) || 0;
+      matchesTime = mins <= maxTimeFilter;
+    }
+    
+    return matchesSearch && matchesCategory && matchesCalories && matchesTime;
   });
 
   // Helper for meal plan filtering
   const dailyPlans = mealPlans.filter(p => p.plannedDate === selectedDate);
+
+  // Calculate total macros for the selected date
+  const totalMacros = dailyPlans.reduce((acc, plan) => {
+    const r = plan.recipeDetails;
+    if (!r) return acc;
+    const cal = parseInt(r.calories) || 0;
+    const prot = parseInt(r.protein) || 0;
+    const fat = parseInt(r.fat) || 0;
+    const carbs = parseInt(r.carbs) || 0;
+    
+    return {
+      calories: acc.calories + cal,
+      protein: acc.protein + prot,
+      fat: acc.fat + fat,
+      carbs: acc.carbs + carbs
+    };
+  }, { calories: 0, protein: 0, fat: 0, carbs: 0 });
 
   // Form Ingredient helpers
   const addIngredientField = () => {
@@ -286,6 +335,82 @@ function RecipesPage() {
     toast.success(`Successfully added all planned ingredients (${totalAdded} items) to cart! 🛒`);
   };
 
+  // Clear Day Feature
+  const handleClearDay = async () => {
+    if (dailyPlans.length === 0) {
+      toast.error("No recipes to clear for today.");
+      return;
+    }
+    setIsClearingDay(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        // Guest mode
+        const guestPlans = JSON.parse(localStorage.getItem("guest_meal_plans") || "[]");
+        const filtered = guestPlans.filter((p: any) => p.plannedDate !== selectedDate);
+        localStorage.setItem("guest_meal_plans", JSON.stringify(filtered));
+      } else {
+        // Authenticated user
+        const { error } = await supabase
+          .from("meal_plans")
+          .delete()
+          .eq("planned_date", selectedDate)
+          .eq("user_id", user.id);
+        if (error) throw error;
+      }
+      qc.invalidateQueries({ queryKey: ["meal-plans"] });
+      toast.success("Successfully cleared all recipes for this day! 🧹");
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Failed to clear schedule: " + err.message);
+    } finally {
+      setIsClearingDay(false);
+    }
+  };
+
+  // Copy Day Feature
+  const handleCopyDay = async () => {
+    if (dailyPlans.length === 0) {
+      toast.error("No recipes scheduled today to copy.");
+      return;
+    }
+    if (!copyTargetDate) {
+      toast.error("Please select a target date.");
+      return;
+    }
+    setIsCopyingDay(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        // Guest mode
+        const guestPlans = JSON.parse(localStorage.getItem("guest_meal_plans") || "[]");
+        const newPlans = dailyPlans.map((p: any) => ({
+          id: crypto.randomUUID(),
+          recipeId: p.recipeId,
+          plannedDate: copyTargetDate
+        }));
+        localStorage.setItem("guest_meal_plans", JSON.stringify([...guestPlans, ...newPlans]));
+      } else {
+        // Authenticated user: bulk copy
+        const plansToCopy = dailyPlans.map(p => ({
+          user_id: user.id,
+          recipe_id: p.recipeId,
+          planned_date: copyTargetDate
+        }));
+        const { error } = await supabase.from("meal_plans").insert(plansToCopy);
+        if (error) throw error;
+      }
+      qc.invalidateQueries({ queryKey: ["meal-plans"] });
+      toast.success(`Successfully copied ${dailyPlans.length} meal(s) to ${copyTargetDate}! 📋`);
+      setShowCopyModal(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Failed to copy schedule: " + err.message);
+    } finally {
+      setIsCopyingDay(false);
+    }
+  };
+
   // Gemini AI Analysis API Call
   const handleAiAnalysis = async (recipe: Recipe) => {
     setAnalyzingRecipeId(recipe.id);
@@ -400,40 +525,116 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
               />
             </div>
 
-            {/* Search Bar & Voice Control */}
+            {/* Search Bar & Filters */}
             <div className="relative flex items-center gap-2">
-              <div className="relative flex-1">
+              <div className="relative flex-grow">
                 <Search className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="Search recipes or categories..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-10 py-3 rounded-full border border-border bg-card text-xs focus:border-[#007000] focus:outline-none transition shadow-sm text-foreground"
+                  className="w-full pl-10 pr-20 py-3 rounded-full border border-border bg-card text-xs focus:border-[#007000] focus:outline-none transition shadow-sm text-foreground"
                 />
-                {searchQuery && (
-                  <button 
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-3.5 top-3.5 text-muted-foreground hover:text-foreground"
+                <div className="absolute right-3.5 top-2.5 flex items-center gap-1.5">
+                  {searchQuery && (
+                    <button 
+                      onClick={() => setSearchQuery("")}
+                      className="text-muted-foreground hover:text-foreground p-1 animate-in fade-in zoom-in-75 duration-100"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <button
+                    onClick={handleVoiceSearch}
+                    className={`p-1 rounded-full transition active:scale-95 ${
+                      isListening 
+                        ? "text-red-500 animate-pulse" 
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    title="Voice Search"
                   >
-                    <X className="h-3.5 w-3.5" />
+                    {isListening ? <MicOff className="h-4.5 w-4.5" /> : <Mic className="h-4.5 w-4.5" />}
                   </button>
-                )}
+                </div>
               </div>
+              
+              {/* Filter Button */}
               <button
-                onClick={handleVoiceSearch}
+                onClick={() => setShowFilters(!showFilters)}
                 className={`p-3 rounded-full border transition active:scale-95 ${
-                  isListening 
-                    ? "bg-red-500/10 border-red-500/30 text-red-500 animate-pulse" 
+                  showFilters || maxCaloriesFilter !== null || maxTimeFilter !== null
+                    ? "bg-[#007000]/10 border-[#007000]/30 text-[#007000]" 
                     : "bg-card border-border hover:bg-muted text-muted-foreground"
                 }`}
-                title="Voice Search"
+                title="Filter Options"
               >
-                {isListening ? <MicOff className="h-4.5 w-4.5" /> : <Mic className="h-4.5 w-4.5" />}
+                <SlidersHorizontal className="h-4.5 w-4.5" />
               </button>
             </div>
 
-            {/* Category Pills */}
+            {/* Expandable Filter Panel */}
+            {showFilters && (
+              <div className="bg-card border border-border/80 rounded-2xl p-3.5 shadow-sm space-y-3 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-foreground">Advanced Filters</h4>
+                  {(maxCaloriesFilter !== null || maxTimeFilter !== null) && (
+                    <button 
+                      onClick={() => {
+                        setMaxCaloriesFilter(null);
+                        setMaxTimeFilter(null);
+                      }}
+                      className="text-[10px] font-bold text-[#007000] hover:underline"
+                    >
+                      Reset All
+                    </button>
+                  )}
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3.5">
+                  {/* Calorie Filter */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Max Calories</label>
+                    <div className="flex flex-wrap gap-1">
+                      {[300, 400, 500].map((cal) => (
+                        <button
+                          key={cal}
+                          onClick={() => setMaxCaloriesFilter(maxCaloriesFilter === cal ? null : cal)}
+                          className={`text-[9px] font-bold px-2.5 py-1 rounded-md border transition ${
+                            maxCaloriesFilter === cal 
+                              ? "bg-[#007000] border-[#007000] text-white" 
+                              : "bg-muted border-border text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          &le; {cal} kcal
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Cook Time Filter */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Max Prep Time</label>
+                    <div className="flex flex-wrap gap-1">
+                      {[15, 30, 45].map((mins) => (
+                        <button
+                          key={mins}
+                          onClick={() => setMaxTimeFilter(maxTimeFilter === mins ? null : mins)}
+                          className={`text-[9px] font-bold px-2.5 py-1 rounded-md border transition ${
+                            maxTimeFilter === mins 
+                              ? "bg-[#007000] border-[#007000] text-white" 
+                              : "bg-muted border-border text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          &le; {mins} min
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+                 {/* Category Pills */}
             <div className="flex gap-1.5 overflow-x-auto pb-1 mt-1 scrollbar-none">
               {["All", "Breakfast", "Lunch", "Dinner", "Indian Favorites"].map((cat) => (
                 <button
@@ -448,6 +649,70 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
                   {cat}
                 </button>
               ))}
+            </div>
+
+            {/* Trending Recipes: Auto-scrolling marquee of recipe images. */}
+            <div className="space-y-2 py-2 border-y border-border/40 my-3 overflow-hidden w-full">
+              <div className="flex items-center justify-between px-1">
+                <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Trending Recipes
+                </h3>
+              </div>
+              <div 
+                className="relative w-full overflow-hidden rounded-2xl bg-muted/40 p-2 cursor-pointer"
+                onClick={() => {
+                  setIsMarqueePaused(false);
+                }}
+              >
+                <div 
+                  className={`animate-marquee gap-3 flex ${isMarqueePaused ? "[animation-play-state:paused]" : "hover:[animation-play-state:paused]"}`}
+                  onMouseEnter={() => setIsMarqueePaused(true)}
+                  onMouseLeave={() => setIsMarqueePaused(false)}
+                >
+                  {/* Set 1 */}
+                  {marqueeRecipes.map((recipe, idx) => (
+                    <div 
+                      key={`marquee-1-${recipe.id}-${idx}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedRecipe(recipe);
+                        setAiAnalysis(STATIC_AI_ANALYSIS[recipe.id] || null);
+                      }}
+                      className="relative w-28 h-20 rounded-xl overflow-hidden cursor-pointer group shadow-sm flex-shrink-0 border border-border"
+                    >
+                      <img 
+                        src={recipe.image || "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop&q=60"} 
+                        alt={recipe.title} 
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        onError={(e) => {
+                          e.currentTarget.src = "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop&q=60";
+                        }}
+                      />
+                    </div>
+                  ))}
+                  {/* Set 2 (Duplicates) */}
+                  {marqueeRecipes.map((recipe, idx) => (
+                    <div 
+                      key={`marquee-2-${recipe.id}-${idx}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedRecipe(recipe);
+                        setAiAnalysis(STATIC_AI_ANALYSIS[recipe.id] || null);
+                      }}
+                      className="relative w-28 h-20 rounded-xl overflow-hidden cursor-pointer group shadow-sm flex-shrink-0 border border-border"
+                    >
+                      <img 
+                        src={recipe.image || "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop&q=60"} 
+                        alt={recipe.title} 
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        onError={(e) => {
+                          e.currentTarget.src = "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop&q=60";
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Catalog Info & Add Action */}
@@ -478,327 +743,103 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
                 No recipes matching your query.
               </div>
             ) : (
-              <div className="space-y-4">
-                {/* First 4 recipes */}
-                <div className="grid grid-cols-2 gap-3.5">
-                  {filteredRecipes.slice(0, 4).map((recipe) => (
-                    <div 
-                      key={recipe.id}
-                      onClick={() => {
-                        setSelectedRecipe(recipe);
-                        setAiAnalysis(STATIC_AI_ANALYSIS[recipe.id] || null);
-                      }}
-                      className="group rounded-3xl border border-border bg-card overflow-hidden shadow-card hover:border-[#007000]/40 transition duration-300 relative flex flex-col cursor-pointer"
-                    >
-                      <div className="relative aspect-[4/3.2] overflow-hidden bg-muted">
-                        <img 
-                          src={recipe.image} 
-                          alt={recipe.title} 
-                          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
-                          onError={(e) => {
-                            e.currentTarget.src = "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop&q=60";
-                          }}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-                        
-                        {/* Category Badge */}
-                        <span className="absolute top-2.5 left-2.5 bg-black/60 text-white font-bold text-[8px] px-2 py-0.5 rounded-md uppercase tracking-wider">
-                          {recipe.category}
+              <div className="grid grid-cols-2 gap-3.5">
+                {filteredRecipes.map((recipe) => (
+                  <div 
+                    key={recipe.id}
+                    onClick={() => {
+                      setSelectedRecipe(recipe);
+                      setAiAnalysis(STATIC_AI_ANALYSIS[recipe.id] || null);
+                    }}
+                    className="group rounded-3xl border border-border bg-card overflow-hidden shadow-card hover:border-[#007000]/40 transition duration-300 relative flex flex-col cursor-pointer"
+                  >
+                    <div className="relative aspect-[4/3.2] overflow-hidden bg-muted">
+                      <img 
+                        src={recipe.image || "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop&q=60"} 
+                        alt={recipe.title} 
+                        className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        onError={(e) => {
+                          e.currentTarget.src = "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop&q=60";
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                      
+                      {/* Category Badge */}
+                      <span className="absolute top-2.5 left-2.5 bg-black/60 text-white font-bold text-[8px] px-2 py-0.5 rounded-md uppercase tracking-wider">
+                        {recipe.category}
+                      </span>
+                    </div>
+
+                    <div className="p-3 flex flex-col justify-between flex-1 space-y-1.5">
+                      <div>
+                        <h4 className="font-display text-xs font-bold text-foreground capitalize leading-snug line-clamp-1">
+                          {recipe.title}
+                        </h4>
+                        <p className="text-[9px] text-muted-foreground mt-0.5 font-semibold">
+                          {recipe.calories} · {recipe.time}
+                        </p>
+                      </div>
+                      
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[8px] bg-emerald-500/10 text-emerald-600 font-bold px-1.5 py-0.5 rounded-md">
+                          {recipe.ingredients.length} Items
                         </span>
-                        
-                        {/* Schedule Button */}
+                        {/* Schedule Button (Placed right down / bottom right of details) */}
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
                             setShowScheduleDropdownId(showScheduleDropdownId === recipe.id ? null : recipe.id);
                           }}
-                          className="absolute top-2.5 right-2.5 bg-black/60 p-1.5 rounded-full text-white hover:bg-[#007000] hover:scale-105 active:scale-95 transition shadow-md z-10"
+                          className="bg-muted hover:bg-[#007000]/10 p-1.5 rounded-lg text-muted-foreground hover:text-[#007000] active:scale-95 transition shadow-sm z-10"
                           title="Schedule Meal"
                         >
                           <Calendar className="h-3.5 w-3.5" />
                         </button>
                       </div>
-
-                      <div className="p-3 flex flex-col justify-between flex-1 space-y-1.5">
-                        <div>
-                          <h4 className="font-display text-xs font-bold text-foreground capitalize leading-snug line-clamp-1">
-                            {recipe.title}
-                          </h4>
-                          <p className="text-[9px] text-muted-foreground mt-0.5 font-semibold">
-                            {recipe.calories} · {recipe.time}
-                          </p>
-                        </div>
-                        
-                        <div className="flex items-center justify-between pt-1">
-                          <span className="text-[8px] bg-emerald-500/10 text-emerald-600 font-bold px-1.5 py-0.5 rounded-md">
-                            {recipe.ingredients.length} Items
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Schedule Date Dropdown overlay inside Card */}
-                      {showScheduleDropdownId === recipe.id && (
-                        <div 
-                          className="absolute inset-x-2 bottom-2 z-20 bg-card border border-border shadow-glow rounded-2xl p-2.5 flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-150"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-bold px-1">Select date:</p>
-                          <input 
-                            type="date" 
-                            value={selectedDate}
-                            onChange={async (e) => {
-                              setSelectedDate(e.target.value);
-                              setShowScheduleDropdownId(null);
-                              await addMealPlanMutation.mutateAsync({ recipeId: recipe.id, dateStr: e.target.value });
-                              toast.success(`Scheduled ${recipe.title}! 📅`);
-                            }}
-                            className="w-full text-[10px] bg-muted border border-border rounded-lg px-2 py-1 text-foreground focus:outline-none focus:border-[#007000]"
-                          />
-                          <div className="grid grid-cols-2 gap-1 mt-1 border-t border-border/50 pt-1">
-                            <button
-                              onClick={async () => {
-                                setShowScheduleDropdownId(null);
-                                const todayStr = new Date().toISOString().split("T")[0];
-                                await addMealPlanMutation.mutateAsync({ recipeId: recipe.id, dateStr: todayStr });
-                                toast.success(`Scheduled ${recipe.title} for Today! 📅`);
-                              }}
-                              className="py-1 text-[9px] font-bold text-white bg-[#007000] rounded-md active:scale-95 transition"
-                            >
-                              Today
-                            </button>
-                            <button
-                              onClick={() => setShowScheduleDropdownId(null)}
-                              className="py-1 text-[9px] font-bold text-muted-foreground bg-muted rounded-md active:scale-95 transition"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      )}
                     </div>
-                  ))}
-                  {/* Trending Recipes: Auto-scrolling marquee of recipe images. Hovering or clicking pauses and displays the name only. */}
-                  <div className="space-y-2 py-3 border-y border-border/60 my-2 overflow-hidden">
-                    <div className="flex items-center justify-between px-1">
-                      <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                        Trending Recipes
-                      </h3>
-                      {isMarqueePaused && (
-                        <button 
-                          onClick={() => {
-                            setIsMarqueePaused(false);
-                            setShowNameOnlyId(null);
+
+                    {/* Schedule Date Dropdown overlay inside Card */}
+                    {showScheduleDropdownId === recipe.id && (
+                      <div 
+                        className="absolute inset-x-2 bottom-2 z-20 bg-card border border-border shadow-glow rounded-2xl p-2.5 flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-150"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-bold px-1">Select date:</p>
+                        <input 
+                          type="date" 
+                          value={selectedDate}
+                          onChange={async (e) => {
+                            setSelectedDate(e.target.value);
+                            setShowScheduleDropdownId(null);
+                            await addMealPlanMutation.mutateAsync({ recipeId: recipe.id, dateStr: e.target.value });
                           }}
-                          className="text-[9px] font-extrabold text-[#007000] hover:underline"
-                        >
-                          Resume Scroll
-                        </button>
-                      )}
-                    </div>
-                    <div 
-                      className="relative w-full overflow-hidden rounded-2xl bg-muted/40 p-2 cursor-pointer"
-                      onClick={() => {
-                        setIsMarqueePaused(false);
-                        setShowNameOnlyId(null);
-                      }}
-                    >
-                      <div 
-                        className={`animate-marquee gap-3 flex ${isMarqueePaused ? "[animation-play-state:paused]" : "hover:[animation-play-state:paused]"}`}
-                      >
-                        {/* Set 1 */}
-                        {recipes.slice(0, 6).map((recipe) => {
-                          const isNameOnly = showNameOnlyId === recipe.id;
-                          return (
-                            <div 
-                              key={recipe.id}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setIsMarqueePaused(true);
-                                setShowNameOnlyId(isNameOnly ? null : recipe.id);
-                              }}
-                              className="relative w-28 h-20 rounded-xl overflow-hidden cursor-pointer group shadow-sm flex-shrink-0 border border-border"
-                            >
-                              {!isNameOnly ? (
-                                <>
-                                  <img 
-                                    src={recipe.image} 
-                                    alt={recipe.title} 
-                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                                  />
-                                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center p-1.5 transition-opacity text-center">
-                                    <span className="text-[9px] text-white font-bold whitespace-normal leading-tight">
-                                      {recipe.title}
-                                    </span>
-                                  </div>
-                                  <div className="absolute bottom-0 inset-x-0 bg-black/65 py-1 text-center group-hover:hidden transition-all">
-                                    <p className="text-[8px] text-white font-bold truncate px-1">{recipe.title}</p>
-                                  </div>
-                                </>
-                              ) : (
-                                <div className="w-full h-full bg-[#007000] flex flex-col items-center justify-center p-2 text-center transition-all duration-300">
-                                  <span className="text-[9px] text-white font-black whitespace-normal leading-tight font-display">
-                                    {recipe.title}
-                                  </span>
-                                  <span className="text-[7px] text-white/80 mt-1 uppercase font-bold tracking-wider">
-                                    {recipe.category}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                        {/* Set 2 (Duplicates) */}
-                        {recipes.slice(0, 6).map((recipe) => {
-                          const isNameOnly = showNameOnlyId === `${recipe.id}-dup`;
-                          return (
-                            <div 
-                              key={`${recipe.id}-dup`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setIsMarqueePaused(true);
-                                setShowNameOnlyId(isNameOnly ? null : `${recipe.id}-dup`);
-                              }}
-                              className="relative w-28 h-20 rounded-xl overflow-hidden cursor-pointer group shadow-sm flex-shrink-0 border border-border"
-                            >
-                              {!isNameOnly ? (
-                                <>
-                                  <img 
-                                    src={recipe.image} 
-                                    alt={recipe.title} 
-                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                                  />
-                                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center p-1.5 transition-opacity text-center">
-                                    <span className="text-[9px] text-white font-bold whitespace-normal leading-tight">
-                                      {recipe.title}
-                                    </span>
-                                  </div>
-                                  <div className="absolute bottom-0 inset-x-0 bg-black/65 py-1 text-center group-hover:hidden transition-all">
-                                    <p className="text-[8px] text-white font-bold truncate px-1">{recipe.title}</p>
-                                  </div>
-                                </>
-                              ) : (
-                                <div className="w-full h-full bg-[#007000] flex flex-col items-center justify-center p-2 text-center transition-all duration-300">
-                                  <span className="text-[9px] text-white font-black whitespace-normal leading-tight font-display">
-                                    {recipe.title}
-                                  </span>
-                                  <span className="text-[7px] text-white/80 mt-1 uppercase font-bold tracking-wider">
-                                    {recipe.category}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Remaining recipes in the grid */}
-                {filteredRecipes.length > 4 && (
-                  <div className="grid grid-cols-2 gap-3.5">
-                    {filteredRecipes.slice(4).map((recipe) => (
-                      <div 
-                        key={recipe.id}
-                        onClick={() => {
-                          setSelectedRecipe(recipe);
-                          setAiAnalysis(STATIC_AI_ANALYSIS[recipe.id] || null);
-                        }}
-                        className="group rounded-3xl border border-border bg-card overflow-hidden shadow-card hover:border-[#007000]/40 transition duration-300 relative flex flex-col cursor-pointer"
-                      >
-                        <div className="relative aspect-[4/3.2] overflow-hidden bg-muted">
-                          <img 
-                            src={recipe.image} 
-                            alt={recipe.title} 
-                            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            onError={(e) => {
-                              e.currentTarget.src = "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop&q=60";
+                          className="w-full text-[10px] bg-muted border border-border rounded-lg px-2 py-1 text-foreground focus:outline-none focus:border-[#007000]"
+                        />
+                        <div className="grid grid-cols-2 gap-1 mt-1 border-t border-border/50 pt-1">
+                          <button
+                            onClick={async () => {
+                              setShowScheduleDropdownId(null);
+                              const todayStr = new Date().toISOString().split("T")[0];
+                              await addMealPlanMutation.mutateAsync({ recipeId: recipe.id, dateStr: todayStr });
                             }}
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-                          
-                          {/* Category Badge */}
-                          <span className="absolute top-2.5 left-2.5 bg-black/60 text-white font-bold text-[8px] px-2 py-0.5 rounded-md uppercase tracking-wider">
-                            {recipe.category}
-                          </span>
-                          
-                          {/* Schedule Button */}
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowScheduleDropdownId(showScheduleDropdownId === recipe.id ? null : recipe.id);
-                            }}
-                            className="absolute top-2.5 right-2.5 bg-black/60 p-1.5 rounded-full text-white hover:bg-[#007000] hover:scale-105 active:scale-95 transition shadow-md z-10"
-                            title="Schedule Meal"
+                            className="py-1 text-[9px] font-bold text-white bg-[#007000] rounded-md active:scale-95 transition"
                           >
-                            <Calendar className="h-3.5 w-3.5" />
+                            Today
+                          </button>
+                          <button
+                            onClick={() => setShowScheduleDropdownId(null)}
+                            className="py-1 text-[9px] font-bold text-muted-foreground bg-muted rounded-md active:scale-95 transition"
+                          >
+                            Cancel
                           </button>
                         </div>
-
-                        <div className="p-3 flex flex-col justify-between flex-1 space-y-1.5">
-                          <div>
-                            <h4 className="font-display text-xs font-bold text-foreground capitalize leading-snug line-clamp-1">
-                              {recipe.title}
-                            </h4>
-                            <p className="text-[9px] text-muted-foreground mt-0.5 font-semibold">
-                              {recipe.calories} · {recipe.time}
-                            </p>
-                          </div>
-                          
-                          <div className="flex items-center justify-between pt-1">
-                            <span className="text-[8px] bg-emerald-500/10 text-emerald-600 font-bold px-1.5 py-0.5 rounded-md">
-                              {recipe.ingredients.length} Items
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Schedule Date Dropdown overlay inside Card */}
-                        {showScheduleDropdownId === recipe.id && (
-                          <div 
-                            className="absolute inset-x-2 bottom-2 z-20 bg-card border border-border shadow-glow rounded-2xl p-2.5 flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-150"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-bold px-1">Select date:</p>
-                            <input 
-                              type="date" 
-                              value={selectedDate}
-                              onChange={async (e) => {
-                                setSelectedDate(e.target.value);
-                                setShowScheduleDropdownId(null);
-                                await addMealPlanMutation.mutateAsync({ recipeId: recipe.id, dateStr: e.target.value });
-                                toast.success(`Scheduled ${recipe.title}! 📅`);
-                              }}
-                              className="w-full text-[10px] bg-muted border border-border rounded-lg px-2 py-1 text-foreground focus:outline-none focus:border-[#007000]"
-                            />
-                            <div className="grid grid-cols-2 gap-1 mt-1 border-t border-border/50 pt-1">
-                              <button
-                                onClick={async () => {
-                                    setShowScheduleDropdownId(null);
-                                    const todayStr = new Date().toISOString().split("T")[0];
-                                    await addMealPlanMutation.mutateAsync({ recipeId: recipe.id, dateStr: todayStr });
-                                    toast.success(`Scheduled ${recipe.title} for Today! 📅`);
-                                }}
-                                className="py-1 text-[9px] font-bold text-white bg-[#007000] rounded-md active:scale-95 transition"
-                              >
-                                Today
-                              </button>
-                              <button
-                                onClick={() => setShowScheduleDropdownId(null)}
-                                className="py-1 text-[9px] font-bold text-muted-foreground bg-muted rounded-md active:scale-95 transition"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        )}
                       </div>
-                    ))}
+                    )}
                   </div>
+                ))}</div>
                 )}
               </div>
             )}
-          </div>
-        )}
 
         {/* Tab 2: Meal Planner */}
         {activeTab === "planner" && (
@@ -890,17 +931,67 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
               </div>
             </div>
 
+            {/* Daily Macros Summary Card */}
+            {dailyPlans.length > 0 && (
+              <div className="rounded-3xl border border-zinc-200/70 bg-gradient-to-br from-card to-muted/20 p-4 shadow-sm space-y-3">
+                <div className="flex items-center justify-between border-b border-border/40 pb-2">
+                  <h4 className="text-xs font-extrabold text-foreground flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-amber-500 animate-pulse" />
+                    <span>Daily Nutrition Targets</span>
+                  </h4>
+                  <span className="text-[10px] font-bold bg-[#007000]/10 text-[#007000] px-2 py-0.5 rounded-full">
+                    {totalMacros.calories} kcal
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div className="rounded-2xl border border-border/40 bg-card py-2 px-1 text-center shadow-sm">
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider block">Protein</span>
+                    <span className="text-xs font-extrabold text-[#007000] mt-0.5 block">{totalMacros.protein}g</span>
+                  </div>
+                  <div className="rounded-2xl border border-border/40 bg-card py-2 px-1 text-center shadow-sm">
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider block">Carbs</span>
+                    <span className="text-xs font-extrabold text-amber-500 mt-0.5 block">{totalMacros.carbs}g</span>
+                  </div>
+                  <div className="rounded-2xl border border-border/40 bg-card py-2 px-1 text-center shadow-sm">
+                    <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider block">Fats</span>
+                    <span className="text-xs font-extrabold text-red-500 mt-0.5 block">{totalMacros.fat}g</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Daily Menu Schedule */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
                   <span>Daily Schedule</span>
                   <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full font-semibold">
-                    {new Date(selectedDate).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+                    {new Date(selectedDate.replace(/-/g, '/')).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
                   </span>
                 </h3>
 
                 <div className="flex items-center gap-1.5">
+                  {dailyPlans.length > 0 && (
+                    <>
+                      <button
+                        onClick={handleClearDay}
+                        disabled={isClearingDay}
+                        className="flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-500/10 hover:bg-red-500/15 disabled:opacity-50 px-2.5 py-1 rounded-full transition shadow-sm cursor-pointer"
+                        title="Clear all scheduled meals for this day"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        <span>{isClearingDay ? "Clearing..." : "Clear"}</span>
+                      </button>
+                      <button
+                        onClick={() => setShowCopyModal(true)}
+                        className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-500/10 hover:bg-amber-500/15 px-2.5 py-1 rounded-full transition shadow-sm cursor-pointer"
+                        title="Copy scheduled meals to another day"
+                      >
+                        <Copy className="h-3 w-3" />
+                        <span>Copy</span>
+                      </button>
+                    </>
+                  )}
                   <button
                     onClick={() => setActiveTab("corner")}
                     className="flex items-center gap-1 text-[10px] font-bold text-white bg-[#007000] hover:opacity-90 active:scale-95 px-2.5 py-1 rounded-full transition shadow-sm cursor-pointer"
@@ -1262,58 +1353,62 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-foreground/45 backdrop-blur-sm p-0 sm:p-4" onClick={() => { setSelectedRecipe(null); setAiAnalysis(null); }}>
           <div 
             onClick={(e) => e.stopPropagation()} 
-            className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-card border border-border/80 shadow-glow p-5 flex flex-col max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom duration-200 text-foreground"
+            className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-card border border-border/80 shadow-glow flex flex-col max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom duration-200 text-foreground"
           >
-            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-muted block sm:hidden" />
-            
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="text-[9px] uppercase tracking-wider bg-[#007000] text-white px-2.5 py-0.5 rounded-md font-bold">
-                  {selectedRecipe.category}
-                </span>
-                <p className="font-display text-lg font-extrabold mt-1.5 capitalize text-foreground">{selectedRecipe.title}</p>
-              </div>
-              <button 
-                onClick={() => { setSelectedRecipe(null); setAiAnalysis(null); }} 
-                className="rounded-xl border border-border bg-muted/40 p-1.5 text-muted-foreground hover:text-foreground active:scale-95 transition"
-              >
-                <X className="h-4.5 w-4.5" />
-              </button>
-            </div>
-
-            {/* Image Hero Frame */}
-            <div className="mt-4 aspect-video w-full overflow-hidden rounded-2xl border border-border bg-muted flex items-center justify-center relative">
+            {/* Image Hero Frame at the very top (full bleed, no padding) */}
+            <div className="w-full aspect-[4/3] sm:aspect-video overflow-hidden relative bg-muted flex-shrink-0">
               <img 
-                src={selectedRecipe.image} 
+                src={selectedRecipe.image || "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop&q=60"} 
                 alt={selectedRecipe.title} 
-                className="h-full w-full object-cover" 
+                className="absolute inset-0 h-full w-full object-cover" 
                 onError={(e) => {
                   e.currentTarget.src = "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&auto=format&fit=crop&q=60";
                 }}
               />
+              {/* Dark Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
+
+              {/* Close Button as a modern translucent circle button in the top-right corner of image */}
+              <button 
+                onClick={() => { setSelectedRecipe(null); setAiAnalysis(null); }} 
+                className="absolute top-4 right-4 rounded-full bg-black/55 backdrop-blur-md p-2 text-white hover:bg-black/75 hover:scale-105 active:scale-95 transition z-10"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              {/* Overlaid Category and Title at the bottom of the image */}
+              <div className="absolute bottom-4 left-4 right-4 text-white z-10">
+                <span className="text-[9px] uppercase tracking-wider bg-[#007000] px-2.5 py-0.5 rounded-md font-bold inline-block">
+                  {selectedRecipe.category}
+                </span>
+                <h3 className="font-display text-lg font-extrabold mt-1.5 capitalize text-white leading-tight">
+                  {selectedRecipe.title}
+                </h3>
+              </div>
             </div>
 
-            {/* Quick Stats Grid */}
-            <div className="grid grid-cols-4 gap-2 text-center text-[10px] mt-4 border-b border-border/50 pb-3">
-              <div className="rounded-xl border border-border bg-muted/30 py-2">
-                <p className="text-muted-foreground font-semibold">Cooking</p>
-                <p className="font-bold text-foreground mt-0.5">{selectedRecipe.time}</p>
+            {/* Remaining details in a padded container */}
+            <div className="p-5 flex-1 space-y-4">
+              
+              {/* Quick Stats Grid */}
+              <div className="grid grid-cols-4 gap-2 text-center text-[10px] border-b border-border/50 pb-3">
+                <div className="rounded-xl border border-border bg-muted/30 py-2">
+                  <p className="text-muted-foreground font-semibold">Cooking</p>
+                  <p className="font-bold text-foreground mt-0.5">{selectedRecipe.time}</p>
+                </div>
+                <div className="rounded-xl border border-border bg-muted/30 py-2">
+                  <p className="text-muted-foreground font-semibold">Calories</p>
+                  <p className="font-bold text-amber-500 mt-0.5">{selectedRecipe.calories}</p>
+                </div>
+                <div className="rounded-xl border border-border bg-muted/30 py-2">
+                  <p className="text-muted-foreground font-semibold">Serves</p>
+                  <p className="font-bold text-foreground mt-0.5">{selectedRecipe.serves}</p>
+                </div>
+                <div className="rounded-xl border border-[#007000]/20 bg-[#007000]/5 py-2">
+                  <p className="text-[#007000] font-bold">Protein</p>
+                  <p className="font-extrabold text-[#007000] mt-0.5">{selectedRecipe.protein}</p>
+                </div>
               </div>
-              <div className="rounded-xl border border-border bg-muted/30 py-2">
-                <p className="text-muted-foreground font-semibold">Calories</p>
-                <p className="font-bold text-amber-500 mt-0.5">{selectedRecipe.calories}</p>
-              </div>
-              <div className="rounded-xl border border-border bg-muted/30 py-2">
-                <p className="text-muted-foreground font-semibold">Serves</p>
-                <p className="font-bold text-foreground mt-0.5">{selectedRecipe.serves}</p>
-              </div>
-              <div className="rounded-xl border border-[#007000]/20 bg-[#007000]/5 py-2">
-                <p className="text-[#007000] font-bold">Protein</p>
-                <p className="font-extrabold text-[#007000] mt-0.5">{selectedRecipe.protein}</p>
-              </div>
-            </div>
-
-            <div className="mt-4 space-y-4">
               
               {/* Ingredients List */}
               <div>
@@ -1398,6 +1493,63 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
               </div>
 
               {/* Single Add to Cart Action removed per request */}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal: Copy Meal Plan to Another Date */}
+      {showCopyModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-foreground/45 backdrop-blur-sm p-0 sm:p-4" onClick={() => setShowCopyModal(false)}>
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            className="w-full max-w-sm rounded-t-3xl sm:rounded-3xl bg-card border border-border/80 shadow-glow p-5 flex flex-col animate-in slide-in-from-bottom duration-200"
+          >
+            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-muted block sm:hidden" />
+            
+            <div className="flex items-center justify-between pb-3 border-b border-border/50">
+              <h3 className="font-display text-sm font-extrabold text-foreground flex items-center gap-1.5">
+                <Copy className="h-4 w-4 text-[#007000]" />
+                <span>Copy Schedule</span>
+              </h3>
+              <button 
+                onClick={() => setShowCopyModal(false)} 
+                className="rounded-xl border border-border bg-muted/40 p-1.5 text-muted-foreground hover:text-foreground active:scale-95 transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 mt-4">
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Copy all scheduled dishes from <span className="font-bold text-foreground">{new Date(selectedDate.replace(/-/g, '/')).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span> to your chosen date below.
+              </p>
+
+              <div>
+                <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block mb-1.5">Target Date</label>
+                <input 
+                  type="date" 
+                  value={copyTargetDate}
+                  onChange={(e) => setCopyTargetDate(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-card text-xs focus:border-[#007000] focus:outline-none text-foreground"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  onClick={() => setShowCopyModal(false)}
+                  className="flex-1 py-3 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:bg-muted/40 active:scale-95 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCopyDay}
+                  disabled={isCopyingDay}
+                  className="flex-1 py-3 rounded-xl bg-gradient-hero text-xs font-bold text-white shadow-glow active:scale-95 transition disabled:opacity-50"
+                >
+                  {isCopyingDay ? "Copying..." : "Copy Day"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

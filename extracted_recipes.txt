@@ -1,0 +1,198 @@
+<USER_REQUEST>
+in meal planner page what features can we add extra for making it useful and add the below recepies  in chef corner page                                                                                                                          🍳 Breakfast Recipes
+🥣 IDLI
+Products
+
+Rice, Urad dal, Salt, Water
+
+Preparation
+
+Take 2 cups rice and wash well
+
+Take 1 cup urad dal and wash separately
+
+Soak rice in 3 cups water and dal in 2 cups water for 6 hours
+
+Grind dal with 1/2 cup water → smooth
+
+Grind rice with 3/4 cup water → coarse
+
+Mix both + add 1 tsp salt
+
+Ferment for 8–10 hours
+
+Pour 80 ml batter into molds
+
+Steam with 2 cups water for 12 min
+
+🥞 DOSA
+Products
+
+Rice, Urad dal, Fenugreek seeds, Salt, Oil
+
+Preparation
+
+Soak 3 cups rice, 1 cup urad dal, and 1 tsp fenugreek for 5 hours
+
+Grind to a very smooth, pourable batter
+
+Add 1 tsp salt and ferment for 8 hours
+
+Heat a pan and grease with 1 tsp oil
+
+Spread 1 ladle of batter in a thin circle
+
+Cook for 2 min until edges are crispy
+
+🥘 APPAM
+Products
+
+Raw rice, Coconut, Yeast, Sugar, Salt
+
+Preparation
+
+Soak 2 cups raw rice for 4 hours
+
+Grind rice with 1 cup grated coconut and 1/2 cup cooked rice
+
+Add 1/2 tsp yeast and 1 tbsp sugar
+
+Ferment for 6–8 hours until bubbly
+
+Pour into an Appam pan and swirl to coat edges
+
+Steam covered for 3 min
+
+🍚 PUTTU
+Products
+
+Rice flour, Grated coconut, Salt, Water
+
+Preparation
+
+Mix 2 cups rice flour with 1/2 tsp salt
+
+Sprinkle 3/4 cup water gradually while mixing
+
+Texture should be moist but crumbly (no lumps)
+
+Layer 2 tbsp coconut then 1 cup flour mixture in puttu maker
+
+Steam for 6–8 min until steam escapes top
+
+🥣 UPMA
+Products
+
+Rava (Semolina), Onion, Mustard seeds, Ghee, Veggies
+
+Preparation
+
+Roast 1 cup rava until fragrant; set aside
+
+Sauté 1 tsp mustard seeds, 1 chopped onion, and chilies in 2 tbsp ghee
+
+Add 2.5 cups water and bring to a boil
+
+Slowly pour in rava while stirring constantly
+
+Cover and cook on low heat for 5 min
+
+🍚 PONGAL
+Products
+
+Raw rice, Moong dal, Black pepper, Cum
+<truncated 15396 bytes>
+c and 1 tsp salt
+
+Cover and cook on low heat for 15 min (no water needed)
+
+Garnish with fresh cilantro before serving
+
+🥣 CHANA MASALA
+Products
+
+Chickpeas (Chana), Onion, Tomato, Chana masala powder
+
+Preparation
+
+Soak 1 cup chickpeas overnight and pressure cook until soft
+
+Sauté 1 large onion and 2 tomatoes into a soft paste
+
+Add 2 tsp chana masala powder and the cooked beans
+
+Simmer with 1/2 cup water for 10 min
+
+Mash a few chickpeas to thicken the gravy
+
+🥣 RAJMA
+Products
+
+Kidney beans (Rajma), Onion-Tomato puree, Ginger, Ghee
+
+Preparation
+
+Soak 1 cup rajma for 8 hours and pressure cook well
+
+Sauté puree with ginger in 1 tbsp ghee until oil separates
+
+Add cooked beans and 1 tsp salt
+
+Simmer for 15 min on low heat until creamy
+
+Serve hot with steamed Basmati rice
+
+🥘 VEG KURMA
+Products
+
+Mixed veggies, Coconut, Cashews, Poppy seeds, Spices
+
+Preparation
+
+Grind 1/2 cup coconut and 5 cashews into a smooth paste
+
+Boil 2 cups mixed veggies (carrots, beans, peas)
+
+Sauté spices and add the coconut paste + veggies
+
+Simmer for 5 min until the sauce thickens
+
+Add a splash of water for desired consistency
+
+🍄 MUSHROOM CURRY
+Products
+
+Mushrooms, Onion, Tomato, Garlic, Cream
+
+Preparation
+
+Sauté 250g sliced mushrooms until they release water
+
+Add 1 chopped onion and 1 tsp garlic paste
+
+Stir in 1/2 cup tomato puree and spices
+
+Cook for 8 min until mushrooms are tender
+
+Finish with 2 tbsp heavy cream for a rich texture
+
+🥘 BHINDI FRY
+Products
+
+Okra (Bhindi), Cumin, Turmeric, Amchur (Mango powder)
+
+Preparation
+
+Wash and dry 250g okra completely; slice into rounds
+
+Heat 2 tbsp oil and sauté okra on medium-high
+
+Add 1/2 tsp turmeric and 1 tsp salt
+
+Fry for 10 min without a lid to avoid sliminess
+
+Toss with 1/2 tsp amchur powder for tanginess                                                                                                                                                                      
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T10:55:39+05:30.
+</ADDITIONAL_METADATA>

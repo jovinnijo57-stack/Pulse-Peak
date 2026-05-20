@@ -119,6 +119,19 @@ function Profile() {
       <PhoneShell>
         <ScreenHeader title="Edit Profile" subtitle="Update your registered details" />
         <div className="mx-5 mt-4 space-y-4 pb-20 animate-in fade-in duration-300">
+          <div className="flex items-center gap-4 rounded-3xl bg-gradient-hero p-5 text-primary-foreground shadow-glow relative overflow-hidden">
+            <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-gold/20 blur-2xl" />
+            <div className="grid h-16 w-16 place-items-center rounded-2xl bg-white/15 font-display text-2xl font-bold backdrop-blur shadow-inner">
+              {(editForm.name || "U").charAt(0)}
+            </div>
+            <div className="flex-1">
+              <p className="font-display text-lg font-bold">{editForm.name || "User"}</p>
+              <p className="text-xs text-primary-foreground/80 mt-0.5">{userMeta.email || "user@example.com"}</p>
+              {editForm.phone && <p className="text-xs text-primary-foreground/70 mt-0.5">{editForm.phone}</p>}
+              <p className="text-xs text-gold font-medium mt-1">{editForm.weightKg}kg · {editForm.heightCm}cm</p>
+            </div>
+          </div>
+
           <label className="block space-y-1.5">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Full Name</span>
             <input type="text" value={editForm.name} onChange={(e) => setEditForm({...editForm, name: e.target.value})} className="w-full rounded-2xl border border-border bg-card p-4 font-display text-base outline-none focus:border-primary shadow-sm" />
