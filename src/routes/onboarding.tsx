@@ -38,13 +38,11 @@ function Onboarding() {
             nav({ to: "/dashboard" });
             return;
           }
-          // Check if they logged in via Google and need phone
-          const isGoogle = user?.app_metadata?.provider === 'google' || user?.app_metadata?.providers?.includes('google') || user?.user_metadata?.iss?.includes('google');
-          if (isGoogle) {
-            const metaPhone = user?.user_metadata?.phone || (profileData && profileData.phone);
-            if (!metaPhone) {
-              setShowPhonePopup(true);
-            }
+          
+          // Show phone number popup for Google login or new users who don't have a phone number in profiles
+          const phone = profileData?.phone || user?.user_metadata?.phone || "";
+          if (!phone || phone.trim() === "") {
+            setShowPhonePopup(true);
           }
         }
       } catch (err) { console.error("checkExistingProfile error:", err); }
@@ -72,12 +70,29 @@ function Onboarding() {
     try {
       const { data: authData } = await supabase.auth.getUser();
       if (authData?.user) {
+        const userId = authData.user.id;
+
+        // Check if phone number already exists in database
+        const { data: existingPhoneUser, error: queryError } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("phone", fullPhone)
+          .maybeSingle();
+
+        if (queryError) throw queryError;
+
+        if (existingPhoneUser && existingPhoneUser.id !== userId) {
+          setPhoneError("Phone number already exists. Please use a different number.");
+          setSavingPhone(false);
+          return;
+        }
+
         await supabase.auth.updateUser({
           data: { phone: fullPhone }
         });
         await supabase.from("profiles").update({
           phone: fullPhone
-        }).eq("id", authData.user.id);
+        }).eq("id", userId);
         
         setProfile({ phone: fullPhone });
       }

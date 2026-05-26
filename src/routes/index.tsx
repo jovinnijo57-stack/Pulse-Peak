@@ -1,7 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { Sparkles, Flame, Apple } from "lucide-react";
 import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -14,12 +15,41 @@ export const Route = createFileRoute("/")({
 });
 
 function Splash() {
+  const nav = useNavigate();
   const [showIntro, setShowIntro] = useState(true);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowIntro(false), 2200);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        supabase.from("profiles").select("ai_plan").eq("id", session.user.id).single().then(({ data: profile }) => {
+          if (profile && profile.ai_plan) {
+            nav({ to: "/dashboard" });
+          } else {
+            nav({ to: "/onboarding" });
+          }
+        });
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        supabase.from("profiles").select("ai_plan").eq("id", session.user.id).single().then(({ data: profile }) => {
+          if (profile && profile.ai_plan) {
+            nav({ to: "/dashboard" });
+          } else {
+            nav({ to: "/onboarding" });
+          }
+        });
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [nav]);
 
   if (showIntro) {
     return (
