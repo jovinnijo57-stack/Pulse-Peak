@@ -23,15 +23,6 @@ function Login() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
-    
-    if (!email.toLowerCase().endsWith("@gmail.com")) {
-      newErrors.email = "Only @gmail.com emails are supported.";
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password: pw });

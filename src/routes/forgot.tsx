@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Check, X, Eye, EyeOff, KeyRound } from "lucide-react";
 import { clsx } from "clsx";
 import { supabase } from "../lib/supabase";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/forgot")({ component: Forgot });
 
@@ -57,14 +58,6 @@ function Forgot() {
     const newErrors: Record<string, string> = {};
     if (!email) {
       newErrors.email = "Email is required.";
-    } else if (!email.toLowerCase().endsWith("@gmail.com")) {
-      newErrors.email = "Only @gmail.com emails are supported.";
-    } else {
-      const users = JSON.parse(localStorage.getItem("users") || "[]");
-      const userExists = users.some((u: any) => u.email.toLowerCase() === email.toLowerCase());
-      if (!userExists) {
-        newErrors.email = "No account found with this email.";
-      }
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -79,6 +72,9 @@ function Forgot() {
     setTimeLeft(60);
     setCanResend(false);
     console.log("OTP sent to:", email, "Generated OTP:", generatedOtp);
+    toast.success(`Reset code: ${generatedOtp} (logged to console)`, {
+      duration: 10000
+    });
 
     try {
       // Invoke live Supabase Edge Function to send real OTP via Brevo
@@ -98,6 +94,9 @@ function Forgot() {
     setCanResend(false);
     setErrors({});
     console.log("New OTP sent to:", email, "Generated OTP:", generatedOtp);
+    toast.success(`New reset code: ${generatedOtp} (logged to console)`, {
+      duration: 10000
+    });
 
     try {
       supabase.functions.invoke('send-otp', {

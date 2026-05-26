@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Check, X, Eye, EyeOff, User, Mail, Phone, Lock, Tag } from "lucide-react";
 import { clsx } from "clsx";
 import { supabase } from "../lib/supabase";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/signup")({ component: Signup });
 
@@ -56,8 +57,6 @@ function Signup() {
     if (!formData.name) newErrors.name = "Full name is required.";
     if (!formData.email) {
       newErrors.email = "Email is required.";
-    } else if (!formData.email.toLowerCase().endsWith("@gmail.com")) {
-      newErrors.email = "Only @gmail.com emails are allowed.";
     }
 
     if (!formData.phone || formData.phone.length < 10) {
@@ -80,6 +79,9 @@ function Signup() {
     setTimeLeft(60);
     setCanResend(false);
     console.log("OTP sent to:", formData.email, "Generated OTP:", generatedOtp);
+    toast.success(`Verification code: ${generatedOtp} (logged to console)`, {
+      duration: 10000
+    });
 
     try {
       // Invoke live Supabase Edge Function to send real OTP via Brevo
@@ -99,6 +101,9 @@ function Signup() {
     setCanResend(false);
     setErrors({});
     console.log("New OTP sent to:", formData.email, "Generated OTP:", generatedOtp);
+    toast.success(`New verification code: ${generatedOtp} (logged to console)`, {
+      duration: 10000
+    });
 
     try {
       supabase.functions.invoke('send-otp', {
