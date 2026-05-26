@@ -15,40 +15,38 @@ export const Route = createFileRoute("/")({
 });
 
 function Splash() {
-  const nav = useNavigate();
   const [showIntro, setShowIntro] = useState(true);
+  const nav = useNavigate();
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowIntro(false), 2200);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        supabase.from("profiles").select("ai_plan").eq("id", session.user.id).single().then(({ data: profile }) => {
+    async function checkAuthRedirect() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data: profile } = await supabase.from("profiles").select("ai_plan").eq("id", session.user.id).maybeSingle();
           if (profile && profile.ai_plan) {
             nav({ to: "/dashboard" });
           } else {
             nav({ to: "/onboarding" });
           }
-        });
+        }
+      } catch (err) {
+        console.error("Auth redirect error:", err);
       }
-    });
+    }
+    checkAuthRedirect();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        supabase.from("profiles").select("ai_plan").eq("id", session.user.id).single().then(({ data: profile }) => {
-          if (profile && profile.ai_plan) {
-            nav({ to: "/dashboard" });
-          } else {
-            nav({ to: "/onboarding" });
-          }
-        });
+      if (session?.user && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
+        checkAuthRedirect();
       }
     });
 
-    return () => subscription.unsubscribe();
+    const timer = setTimeout(() => setShowIntro(false), 2200);
+    return () => {
+      clearTimeout(timer);
+      subscription.unsubscribe();
+    };
   }, [nav]);
 
   if (showIntro) {

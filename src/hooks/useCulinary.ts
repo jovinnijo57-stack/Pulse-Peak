@@ -72,7 +72,7 @@ export function useMealPlans() {
         recipe_id,
         planned_date,
         recipes (*)
-      `);
+      `).eq("user_id", user.id);
       if (error) throw error;
       
       return (data || []).map((item: any) => {
@@ -213,7 +213,7 @@ export function useDeleteMealPlan() {
         return;
       }
 
-      const { error } = await supabase.from("meal_plans").delete().eq("id", planId);
+      const { error } = await supabase.from("meal_plans").delete().eq("id", planId).eq("user_id", user.id);
       if (error) throw error;
     },
     onSuccess: () => {
