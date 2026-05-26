@@ -72,6 +72,24 @@ function Signup() {
       return;
     }
 
+    const fullPhone = `${countryCode} ${formData.phone}`;
+    try {
+      const { data: existing, error: checkError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("phone", fullPhone);
+
+      if (checkError) throw checkError;
+
+      if (existing && existing.length > 0) {
+        setErrors({ phone: "already exists" });
+        return;
+      }
+    } catch (err: any) {
+      setErrors({ phone: "Failed to verify phone number: " + err.message });
+      return;
+    }
+
     const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
     setExpectedOtp(generatedOtp);
     setErrors({});

@@ -107,7 +107,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               ...loaded.profile,
               email: profileData.email || authData?.user?.email || "",
               phone: profileData.phone || authData?.user?.user_metadata?.phone || "",
-              name: profileData.name || authData?.user?.user_metadata?.full_name || "PulsePeak User",
+              name: profileData.name || authData?.user?.user_metadata?.full_name || authData?.user?.user_metadata?.name || "PulsePeak User",
               goal: profileData.goal || loaded.profile.goal,
               calorieGoal: profileData.calorie_goal || loaded.profile.calorieGoal,
               waterGoalMl: profileData.water_goal_ml || loaded.profile.waterGoalMl,
@@ -126,7 +126,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           } else {
             loaded.profile.email = authData?.user?.email || "";
             loaded.profile.phone = authData?.user?.user_metadata?.phone || "";
-            loaded.profile.name = authData?.user?.user_metadata?.full_name || "New User";
+            loaded.profile.name = authData?.user?.user_metadata?.full_name || authData?.user?.user_metadata?.name || "New User";
           }
 
           // Fetch Meals for today
@@ -200,10 +200,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // Sync with Supabase
         getUserId().then(userId => {
           if (userId) {
-            supabase.from("profiles").upsert({
+            const payload: any = {
               id: userId,
-              name: updatedProfile.name,
-              phone: updatedProfile.phone,
               goal: updatedProfile.goal,
               calorie_goal: updatedProfile.calorieGoal,
               water_goal_ml: updatedProfile.waterGoalMl,
@@ -213,7 +211,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               weight_kg: updatedProfile.weightKg,
               height_cm: updatedProfile.heightCm,
               ai_plan: updatedProfile.aiPlan,
-            }).then();
+            };
+            if (updatedProfile.name) payload.name = updatedProfile.name;
+            if (updatedProfile.phone) payload.phone = updatedProfile.phone;
+            if (updatedProfile.age) payload.age = updatedProfile.age;
+            if (updatedProfile.gender) payload.gender = updatedProfile.gender;
+            if (updatedProfile.activity) payload.activity = Number(updatedProfile.activity);
+            if (updatedProfile.diet) payload.diet = updatedProfile.diet;
+            if (updatedProfile.workoutType) payload.workout_type = updatedProfile.workoutType;
+
+            supabase.from("profiles").upsert(payload, { onConflict: 'id' }).then();
           }
         });
       } catch {}

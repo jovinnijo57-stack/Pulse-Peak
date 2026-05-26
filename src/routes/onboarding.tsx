@@ -8,7 +8,8 @@ import { supabase } from "@/lib/supabase";
 export const Route = createFileRoute("/onboarding")({ component: Onboarding });
 
 function Onboarding() {
-  const { setProfile } = useStore();
+  const { state, setProfile } = useStore();
+  const { profile } = state;
   const nav = useNavigate();
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState(0);
@@ -33,10 +34,17 @@ function Onboarding() {
         const userId = user?.id;
 
         if (userId) {
-          const { data: profileData } = await supabase.from("profiles").select("ai_plan, phone").eq("id", userId).single();
+          const { data: profileData } = await supabase.from("profiles").select("ai_plan, phone, name").eq("id", userId).single();
           if (profileData && profileData.ai_plan) {
             nav({ to: "/dashboard" });
             return;
+          }
+          if (profileData) {
+            setData((prev: any) => ({ ...prev, phone: profileData.phone || "" }));
+            setProfile({ 
+              phone: profileData.phone || "", 
+              name: profileData.name || authData?.user?.user_metadata?.full_name || authData?.user?.user_metadata?.name || "" 
+            });
           }
           // Check if they logged in via Google and need phone
           const isGoogle = user?.app_metadata?.provider === 'google' || 
@@ -106,11 +114,15 @@ function Onboarding() {
         await supabase.from("profiles").upsert({
           id: authData.user.id,
           email: authData.user.email,
-          name: authData.user.user_metadata?.full_name || "PulsePeak User",
+          name: profile.name || authData.user.user_metadata?.full_name || authData.user.user_metadata?.name || "PulsePeak User",
           phone: fullPhone,
         }, { onConflict: 'id' });
         
-        setProfile({ phone: fullPhone });
+        setData((prev: any) => ({ ...prev, phone: fullPhone }));
+        setProfile({ 
+          phone: fullPhone, 
+          name: profile.name || authData.user.user_metadata?.full_name || authData.user.user_metadata?.name || "PulsePeak User" 
+        });
       }
       setShowPhonePopup(false);
     } catch (err: any) {
@@ -185,6 +197,8 @@ Provide a JSON response with exactly this structure:
 
     const updatedProfile: Partial<Profile> = {
       ...data,
+      phone: data.phone || profile.phone || "",
+      name: profile.name || "",
       calorieGoal,
       proteinGoal: Math.round((calorieGoal * 0.3) / 4),
       carbsGoal: Math.round((calorieGoal * 0.4) / 4),
@@ -202,8 +216,8 @@ Provide a JSON response with exactly this structure:
         await supabase.from("profiles").upsert({
           id: userId,
           email: authData.user?.email,
-          name: authData.user?.user_metadata?.full_name || "PulsePeak User",
-          phone: data.phone || authData.user?.user_metadata?.phone || "",
+          name: profile.name || authData.user?.user_metadata?.full_name || authData.user?.user_metadata?.name || "PulsePeak User",
+          phone: data.phone || profile.phone || authData.user?.user_metadata?.phone || authData.user?.phone || "",
           goal: data.goal,
           calorie_goal: calorieGoal,
           water_goal_ml: data.waterGoalL * 1000,
