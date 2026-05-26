@@ -156,23 +156,47 @@ function Signup() {
         });
         if (error) {
           if (error.message.includes("rate limit")) {
-            setErrors({ otp: "Supabase email rate limit exceeded (too many test signups). Please wait a few minutes or try another @gmail.com address to test registration!" });
+            setErrors({ otp: "Supabase email rate limit exceeded. Please wait a few minutes or try another email address!" });
           } else {
             setErrors({ otp: error.message });
           }
           return;
         }
+
+        // After signup, sign in immediately so we have an active session
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
+
+        if (!signInError && signInData?.user) {
+          // Explicitly save profile data — the trigger may not fire until email is confirmed
+          try {
+            await supabase.from("profiles").upsert({
+              id: signInData.user.id,
+              email: formData.email,
+              name: formData.name,
+              phone: fullPhone,
+            }, { onConflict: "id" });
+          } catch (_) {}
+
+          setShowSuccessAnim(true);
+          setTimeout(() => {
+            nav({ to: "/onboarding" });
+          }, 2000);
+        } else {
+          // Email confirmation may be required — show success and redirect to login
+          setShowSuccessAnim(true);
+          setTimeout(() => {
+            nav({ to: "/login" });
+          }, 2500);
+        }
       } catch (err: any) {
         setErrors({ otp: err.message || "Registration failed." });
         return;
       }
-
-      setShowSuccessAnim(true);
-      setTimeout(() => {
-        nav({ to: "/login" });
-      }, 2500);
     } else {
-      setErrors({ otp: `Invalid OTP. Please enter the 6-digit code sent to your email.` });
+      setErrors({ otp: "Invalid OTP. Please enter the 6-digit code sent to your email." });
     }
   };
 

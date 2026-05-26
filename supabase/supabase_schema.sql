@@ -31,15 +31,19 @@ alter table public.profiles enable row level security;
 drop policy if exists "Users can view own profile" on public.profiles;
 drop policy if exists "Users can update own profile" on public.profiles;
 drop policy if exists "Users can insert own profile" on public.profiles;
+drop policy if exists "Users can upsert own profile" on public.profiles;
 
 create policy "Users can view own profile" on public.profiles
   for select using (auth.uid() = id);
 
 create policy "Users can update own profile" on public.profiles
-  for update using (auth.uid() = id);
+  for update using (auth.uid() = id) with check (auth.uid() = id);
 
 create policy "Users can insert own profile" on public.profiles
   for insert with check (auth.uid() = id);
+
+-- Note: upsert requires both insert + update policies above to work correctly.
+-- The service_role key bypasses RLS entirely (used in server-side triggers).
 
 
 -- 2. Meal Logs Table
