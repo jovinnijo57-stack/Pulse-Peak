@@ -115,44 +115,56 @@ function RecipesPage() {
   const [showSubstituteBox, setShowSubstituteBox] = useState(false);
   const kitchenIntervalRef = useRef<any>(null);
 
-  // Prep Timer Countdown useEffect
+  // Prep Timer Countdown useEffect (Ticking Interval Only)
   useEffect(() => {
+    let intervalId: any = null;
     if (kitchenTimerRunning && kitchenTimerSecs !== null && kitchenTimerSecs > 0) {
-      kitchenIntervalRef.current = setInterval(() => {
+      intervalId = setInterval(() => {
         setKitchenTimerSecs((prev) => {
           if (prev === null || prev <= 1) {
-            clearInterval(kitchenIntervalRef.current);
-            setKitchenTimerRunning(false);
-            try {
-              if (typeof window !== "undefined") {
-                const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-                if (AudioCtx) {
-                  const audioCtx = new AudioCtx();
-                  const osc = audioCtx.createOscillator();
-                  const gain = audioCtx.createGain();
-                  osc.connect(gain);
-                  gain.connect(audioCtx.destination);
-                  osc.type = "sine";
-                  osc.frequency.value = 880; // A5 tone
-                  gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
-                  osc.start();
-                  osc.stop(audioCtx.currentTime + 0.6);
-                }
-              }
-            } catch (err) {}
-            toast.success("⏰ Cooking step complete! Chef's Timer is finished!");
-            return null;
+            return 0; // Trigger completion effect cleanly
           }
           return prev - 1;
         });
       }, 1000);
-    } else {
-      if (kitchenIntervalRef.current) clearInterval(kitchenIntervalRef.current);
     }
     return () => {
-      if (kitchenIntervalRef.current) clearInterval(kitchenIntervalRef.current);
+      if (intervalId) clearInterval(intervalId);
     };
-  }, [kitchenTimerRunning, kitchenTimerSecs]);
+  }, [kitchenTimerRunning]);
+
+  // Clean Side Effects on Timer Completion
+  useEffect(() => {
+    if (kitchenTimerSecs === 0) {
+      setKitchenTimerRunning(false);
+      setKitchenTimerSecs(null);
+
+      // Trigger Audio synthesizer tone
+      try {
+        if (typeof window !== "undefined") {
+          const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+          if (AudioCtx) {
+            const audioCtx = new AudioCtx();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = "sine";
+            osc.frequency.value = 880; // A5 tone
+            gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.6);
+          }
+        }
+      } catch (err) {
+        console.error("Audio context complete synthesis failed:", err);
+      }
+
+      // Trigger Sonner Toast
+      toast.success("⏰ Cooking step complete! Chef's Timer is finished!");
+    }
+  }, [kitchenTimerSecs]);
+
 
   useEffect(() => {
     setCheckedSteps({});
@@ -1801,34 +1813,36 @@ Return ONLY a valid JSON array of objects, where each object has these exact key
                   </p>
 
                   {/* Servings portion scaler slider widget */}
-                  <div className="mb-3.5 flex items-center justify-between p-2.5 rounded-2xl bg-muted/40 border border-border/60">
-                    <div>
-                      <span className="text-[10px] uppercase font-black text-muted-foreground tracking-wider block">Portions/Servings Scaler:</span>
-                      <span className="text-[9px] text-muted-foreground">Adjust quantities & calories instantly</span>
+                  {activeTab === "planner" && (
+                    <div className="mb-3.5 flex items-center justify-between p-2.5 rounded-2xl bg-muted/40 border border-border/60">
+                      <div>
+                        <span className="text-[10px] uppercase font-black text-muted-foreground tracking-wider block">Portions/Servings Scaler:</span>
+                        <span className="text-[9px] text-muted-foreground">Adjust quantities & calories instantly</span>
+                      </div>
+                      <div className="flex gap-1.5">
+                        {[1, 1.5, 2, 3].map((mult) => {
+                          const isActive = portionsMultiplier === mult;
+                          return (
+                            <button
+                              key={mult}
+                              type="button"
+                              onClick={() => {
+                                setPortionsMultiplier(mult);
+                                toast.success(`Portions scaled to ${mult}x! 🍳`);
+                              }}
+                              className={`px-2 py-1 rounded-lg text-[10px] font-black tracking-wide border transition duration-200 cursor-pointer ${
+                                isActive
+                                  ? "bg-[#007000] border-[#007000] text-white"
+                                  : "bg-card border-border text-muted-foreground hover:bg-muted"
+                              }`}
+                            >
+                              {mult}x
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div className="flex gap-1.5">
-                      {[1, 1.5, 2, 3].map((mult) => {
-                        const isActive = portionsMultiplier === mult;
-                        return (
-                          <button
-                            key={mult}
-                            type="button"
-                            onClick={() => {
-                              setPortionsMultiplier(mult);
-                              toast.success(`Portions scaled to ${mult}x! 🍳`);
-                            }}
-                            className={`px-2 py-1 rounded-lg text-[10px] font-black tracking-wide border transition duration-200 cursor-pointer ${
-                              isActive
-                                ? "bg-[#007000] border-[#007000] text-white"
-                                : "bg-card border-border text-muted-foreground hover:bg-muted"
-                            }`}
-                          >
-                            {mult}x
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  )}
 
                   <ul className="space-y-1.5">
                     {selectedRecipe.ingredients.map((ing, idx) => (
@@ -1886,6 +1900,36 @@ Return ONLY a valid JSON array of objects, where each object has these exact key
                     </div>
                   ) : aiAnalysis ? (
                     <div className="space-y-4 animate-in fade-in duration-300">
+                      {/* Servings portion scaler slider widget */}
+                      <div className="mb-3.5 flex items-center justify-between p-2.5 rounded-2xl bg-muted/40 border border-border/60">
+                        <div>
+                          <span className="text-[10px] uppercase font-black text-muted-foreground tracking-wider block">Portions/Servings Scaler:</span>
+                          <span className="text-[9px] text-muted-foreground">Adjust quantities & calories instantly</span>
+                        </div>
+                        <div className="flex gap-1.5">
+                          {[1, 1.5, 2, 3].map((mult) => {
+                            const isActive = portionsMultiplier === mult;
+                            return (
+                              <button
+                                key={mult}
+                                type="button"
+                                onClick={() => {
+                                  setPortionsMultiplier(mult);
+                                  toast.success(`Portions scaled to ${mult}x! 🍳`);
+                                }}
+                                className={`px-2 py-1 rounded-lg text-[10px] font-black tracking-wide border transition duration-200 cursor-pointer ${
+                                  isActive
+                                    ? "bg-[#007000] border-[#007000] text-white"
+                                    : "bg-card border-border text-muted-foreground hover:bg-muted"
+                                }`}
+                              >
+                                {mult}x
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
                       {/* YouTube Video Player with Selector Carousel & Search */}
                       {(activeVideoId || aiAnalysis.youtubeVideoId) && (
                         <div className="space-y-3">
@@ -2023,10 +2067,10 @@ Return ONLY a valid JSON array of objects, where each object has these exact key
                         )}
                       </div>
 
-                      {/* Interactive Steps Checklist */}
+                      {/* AI Optimized Preparation Steps Checklist */}
                       <div className="p-3.5 bg-gradient-gold border border-gold/30 rounded-2xl space-y-2.5">
-                        <p className="text-[10px] uppercase font-bold text-[#007000] tracking-wider">
-                          Interactive Prep Steps (Qty Inline):
+                        <p className="text-xs font-extrabold text-[#007000] tracking-wider uppercase">
+                          📋 AI Optimized Preparation Steps:
                         </p>
                         <div className="space-y-2">
                           {aiAnalysis.steps.map((step: string, idx: number) => {
@@ -2127,7 +2171,7 @@ Return ONLY a valid JSON array of objects, where each object has these exact key
                             <span>This dish has excellent protein density, perfect for lean muscle growth.</span>
                           </div>
                           <div className="flex gap-2 items-start">
-                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0 mt-1.5" />
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-550 shrink-0 mt-1.5" />
                             <span>Limit added table salt—rely on raw fresh herbs and lemon juice for seasoning to support lower blood pressure.</span>
                           </div>
                           <div className="flex gap-2 items-start">
@@ -2137,15 +2181,25 @@ Return ONLY a valid JSON array of objects, where each object has these exact key
                         </div>
                       </div>
 
-                      {/* Ingredient Deep Dives */}
+                      {/* AI Optimized Ingredients List & Insights */}
                       {aiAnalysis.ingredients && aiAnalysis.ingredients.length > 0 && (
                         <div className="space-y-2">
-                          <span className="text-[10px] uppercase font-extrabold text-muted-foreground tracking-wider block">
-                            🌱 Ingredient Benefits & Insights:
-                          </span>
+                          <p className="text-xs font-extrabold text-foreground mb-2 flex items-center gap-1.5">
+                            <ShoppingCart className="h-4 w-4 text-[#007000]" />
+                            <span>🌱 AI Optimized Ingredients List:</span>
+                          </p>
                           <div className="space-y-2">
                             {aiAnalysis.ingredients.map((ing: any, idx: number) => {
                               const isExpanded = expandedIngredient === ing.name;
+                              
+                              // Find base quantity from original ingredients
+                              const originalIng = selectedRecipe.ingredients.find(
+                                (i) => i.name.toLowerCase() === ing.name.toLowerCase()
+                              );
+                              const baseQty = originalIng?.qty || 0;
+                              const unit = originalIng?.unit || "g";
+                              const scaledQty = baseQty ? Math.round(baseQty * portionsMultiplier) : null;
+
                               return (
                                 <div
                                   key={idx}
@@ -2156,7 +2210,14 @@ Return ONLY a valid JSON array of objects, where each object has these exact key
                                     onClick={() => setExpandedIngredient(isExpanded ? null : ing.name)}
                                     className="w-full px-3.5 py-2.5 flex items-center justify-between text-left text-xs font-bold text-foreground hover:bg-muted/40 transition"
                                   >
-                                    <span className="capitalize">{ing.name}</span>
+                                    <div className="flex items-center justify-between w-full pr-3.5">
+                                      <span className="capitalize">{ing.name}</span>
+                                      {scaledQty && (
+                                        <span className="text-[10px] text-[#007000] font-black">
+                                          {scaledQty} {unit}
+                                        </span>
+                                      )}
+                                    </div>
                                     <ChevronRight
                                       className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-250 ${
                                         isExpanded ? "rotate-90" : ""
@@ -2166,7 +2227,7 @@ Return ONLY a valid JSON array of objects, where each object has these exact key
                                   {isExpanded && (
                                     <div className="px-3.5 pb-3 pt-1 text-[11px] text-muted-foreground space-y-2 border-t border-border/20 bg-muted/20 animate-in fade-in duration-150">
                                       <div>
-                                        <span className="font-semibold text-emerald-600 block">🌟 Benefit:</span>
+                                        <span className="font-semibold text-emerald-650 block">🌟 Benefit:</span>
                                         <span>{ing.benefit}</span>
                                       </div>
                                       <div>
