@@ -1935,24 +1935,6 @@ Return ONLY a valid JSON array of objects, where each object has these exact key
                               </div>
                             </div>
                           )}
-
-                          {/* Custom YouTube Search Feature */}
-                          <form onSubmit={handleCustomYtSearch} className="flex gap-2 items-center">
-                            <input
-                              type="text"
-                              value={customYtQuery}
-                              onChange={(e) => setCustomYtQuery(e.target.value)}
-                              placeholder="Search custom recipes on YouTube..."
-                              className="flex-1 rounded-xl border border-border bg-card px-3 py-2 text-[10px] outline-none focus:border-[#007000] shadow-sm"
-                            />
-                            <button
-                              type="submit"
-                              disabled={searchingCustomYt || !customYtQuery.trim()}
-                              className="px-3.5 py-2 rounded-xl bg-[#007000] hover:bg-[#007000]/90 text-white font-bold text-[10px] active:scale-95 transition disabled:opacity-50"
-                            >
-                              {searchingCustomYt ? "..." : "Search"}
-                            </button>
-                          </form>
                         </div>
                       )}
 
@@ -1972,21 +1954,6 @@ Return ONLY a valid JSON array of objects, where each object has these exact key
                         </div>
                       </div>
 
-                      {/* Interactive Portions Multiplier Display Metrics */}
-                      <div className="p-3 bg-[#007000]/5 border border-[#007000]/25 rounded-2xl flex items-center justify-between">
-                        <div>
-                          <span className="text-[8px] uppercase tracking-wider text-zinc-500 font-bold">Scaled Nutrition values:</span>
-                          <p className="text-[10px] text-muted-foreground leading-normal mt-0.5">
-                            Yielding <span className="font-bold text-[#007000]">{portionsMultiplier} portions</span> of {selectedRecipe.title}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-xs font-black text-[#007000] block">
-                            {Math.round((parseInt(selectedRecipe.calories) || 280) * portionsMultiplier)} kcal
-                          </span>
-                          <span className="text-[8px] font-semibold text-zinc-500 uppercase">Scaled energy output</span>
-                        </div>
-                      </div>
 
                       {/* Cooking countdown timer visual widget with Audio Synthesizer */}
                       <div className="rounded-2xl border border-zinc-200 bg-zinc-50/50 p-3.5 shadow-sm">
