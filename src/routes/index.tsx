@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Sparkles, Flame, Apple } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -23,6 +24,33 @@ function Splash() {
   const [showIntro, setShowIntro] = useState(true);
 
   useEffect(() => {
+    const handleGoogleLoginWithSelectAccount = async () => {
+      try {
+        await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: `${window.location.origin}/login`,
+            queryParams: {
+              access_type: "offline",
+              prompt: "select_account",
+            },
+          },
+        });
+      } catch (err) {}
+    };
+
+    const href = typeof window !== "undefined" ? window.location.href || "" : "";
+    if (href.includes("error=access_denied") || href.includes("error_code=403") || href.includes("access_denied")) {
+      if (typeof window !== "undefined") {
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+      toast.info("Selecting different account...");
+      supabase.auth.signOut().then(() => {
+        handleGoogleLoginWithSelectAccount();
+      });
+      return;
+    }
+
     async function checkSession() {
       try {
         const {

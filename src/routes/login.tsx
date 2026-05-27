@@ -38,10 +38,11 @@ function Login() {
       }
     };
 
-    const hash = typeof window !== "undefined" ? window.location.hash || "" : "";
-    const search = typeof window !== "undefined" ? window.location.search || "" : "";
-    if (hash.includes("error=access_denied") || hash.includes("error_code=403") || search.includes("error=access_denied")) {
-      window.history.replaceState(null, "", window.location.pathname);
+    const href = typeof window !== "undefined" ? window.location.href || "" : "";
+    if (href.includes("error=access_denied") || href.includes("error_code=403") || href.includes("access_denied")) {
+      if (typeof window !== "undefined") {
+        window.history.replaceState(null, "", window.location.pathname);
+      }
       toast.info("Selecting different account...");
       supabase.auth.signOut().then(() => {
         handleGoogleLoginWithSelectAccount();
@@ -116,7 +117,7 @@ function Login() {
           redirectTo: `${window.location.origin}/login`,
           queryParams: {
             access_type: "offline",
-            prompt: "consent",
+            prompt: "select_account",
           },
         },
       });

@@ -36,6 +36,33 @@ function Onboarding() {
   const [phoneError, setPhoneError] = useState("");
   const [savingPhone, setSavingPhone] = useState(false);
   useEffect(() => {
+    const handleGoogleLoginWithSelectAccount = async () => {
+      try {
+        await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: `${window.location.origin}/login`,
+            queryParams: {
+              access_type: "offline",
+              prompt: "select_account",
+            },
+          },
+        });
+      } catch (err) {}
+    };
+
+    const href = typeof window !== "undefined" ? window.location.href || "" : "";
+    if (href.includes("error=access_denied") || href.includes("error_code=403") || href.includes("access_denied")) {
+      if (typeof window !== "undefined") {
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+      toast.info("Selecting different account...");
+      supabase.auth.signOut().then(() => {
+        handleGoogleLoginWithSelectAccount();
+      });
+      return;
+    }
+
     async function checkExistingProfile() {
       try {
         const { data: sessionData } = await supabase.auth.getSession();

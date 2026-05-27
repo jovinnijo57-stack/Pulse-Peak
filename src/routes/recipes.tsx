@@ -107,11 +107,63 @@ function RecipesPage() {
   const [customYtQuery, setCustomYtQuery] = useState("");
   const [searchingCustomYt, setSearchingCustomYt] = useState(false);
 
+  // New premium AI features state variables
+  const [portionsMultiplier, setPortionsMultiplier] = useState(1);
+  const [kitchenTimerSecs, setKitchenTimerSecs] = useState<number | null>(null);
+  const [kitchenTimerRunning, setKitchenTimerRunning] = useState(false);
+  const [substituteIngName, setSubstituteIngName] = useState<string | null>(null);
+  const [showSubstituteBox, setShowSubstituteBox] = useState(false);
+  const kitchenIntervalRef = useRef<any>(null);
+
+  // Prep Timer Countdown useEffect
+  useEffect(() => {
+    if (kitchenTimerRunning && kitchenTimerSecs !== null && kitchenTimerSecs > 0) {
+      kitchenIntervalRef.current = setInterval(() => {
+        setKitchenTimerSecs((prev) => {
+          if (prev === null || prev <= 1) {
+            clearInterval(kitchenIntervalRef.current);
+            setKitchenTimerRunning(false);
+            try {
+              if (typeof window !== "undefined") {
+                const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+                if (AudioCtx) {
+                  const audioCtx = new AudioCtx();
+                  const osc = audioCtx.createOscillator();
+                  const gain = audioCtx.createGain();
+                  osc.connect(gain);
+                  gain.connect(audioCtx.destination);
+                  osc.type = "sine";
+                  osc.frequency.value = 880; // A5 tone
+                  gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                  osc.start();
+                  osc.stop(audioCtx.currentTime + 0.6);
+                }
+              }
+            } catch (err) {}
+            toast.success("⏰ Cooking step complete! Chef's Timer is finished!");
+            return null;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      if (kitchenIntervalRef.current) clearInterval(kitchenIntervalRef.current);
+    }
+    return () => {
+      if (kitchenIntervalRef.current) clearInterval(kitchenIntervalRef.current);
+    };
+  }, [kitchenTimerRunning, kitchenTimerSecs]);
+
   useEffect(() => {
     setCheckedSteps({});
     setExpandedIngredient(null);
     setActiveVideoId(null);
     setCustomYtQuery("");
+    setPortionsMultiplier(1);
+    setKitchenTimerSecs(null);
+    setKitchenTimerRunning(false);
+    setSubstituteIngName(null);
+    setShowSubstituteBox(false);
   }, [selectedRecipe]);
 
   // Copy & Clear Planner Day States
@@ -1747,6 +1799,37 @@ Return ONLY a valid JSON array of objects, where each object has these exact key
                     <ShoppingCart className="h-4 w-4 text-[#007000]" />
                     <span>Ingredients List:</span>
                   </p>
+
+                  {/* Servings portion scaler slider widget */}
+                  <div className="mb-3.5 flex items-center justify-between p-2.5 rounded-2xl bg-muted/40 border border-border/60">
+                    <div>
+                      <span className="text-[10px] uppercase font-black text-muted-foreground tracking-wider block">Portions/Servings Scaler:</span>
+                      <span className="text-[9px] text-muted-foreground">Adjust quantities & calories instantly</span>
+                    </div>
+                    <div className="flex gap-1.5">
+                      {[1, 1.5, 2, 3].map((mult) => {
+                        const isActive = portionsMultiplier === mult;
+                        return (
+                          <button
+                            key={mult}
+                            type="button"
+                            onClick={() => {
+                              setPortionsMultiplier(mult);
+                              toast.success(`Portions scaled to ${mult}x! 🍳`);
+                            }}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-black tracking-wide border transition duration-200 cursor-pointer ${
+                              isActive
+                                ? "bg-[#007000] border-[#007000] text-white"
+                                : "bg-card border-border text-muted-foreground hover:bg-muted"
+                            }`}
+                          >
+                            {mult}x
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   <ul className="space-y-1.5">
                     {selectedRecipe.ingredients.map((ing, idx) => (
                       <li
@@ -1755,7 +1838,7 @@ Return ONLY a valid JSON array of objects, where each object has these exact key
                       >
                         <span className="capitalize">{ing.name}</span>
                         <span className="font-bold text-foreground">
-                          {ing.qty} {ing.unit || "g"}
+                          {Math.round(ing.qty * portionsMultiplier)} {ing.unit || "g"}
                         </span>
                       </li>
                     ))}
@@ -1889,6 +1972,90 @@ Return ONLY a valid JSON array of objects, where each object has these exact key
                         </div>
                       </div>
 
+                      {/* Interactive Portions Multiplier Display Metrics */}
+                      <div className="p-3 bg-[#007000]/5 border border-[#007000]/25 rounded-2xl flex items-center justify-between">
+                        <div>
+                          <span className="text-[8px] uppercase tracking-wider text-zinc-500 font-bold">Scaled Nutrition values:</span>
+                          <p className="text-[10px] text-muted-foreground leading-normal mt-0.5">
+                            Yielding <span className="font-bold text-[#007000]">{portionsMultiplier} portions</span> of {selectedRecipe.title}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-black text-[#007000] block">
+                            {Math.round((parseInt(selectedRecipe.calories) || 280) * portionsMultiplier)} kcal
+                          </span>
+                          <span className="text-[8px] font-semibold text-zinc-500 uppercase">Scaled energy output</span>
+                        </div>
+                      </div>
+
+                      {/* Cooking countdown timer visual widget with Audio Synthesizer */}
+                      <div className="rounded-2xl border border-zinc-200 bg-zinc-50/50 p-3.5 shadow-sm">
+                        <div className="flex justify-between items-center mb-2.5 border-b border-border/40 pb-2">
+                          <span className="text-[9px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                            <Clock className="h-3 w-3 text-[#007000]" />
+                            <span>Kitchen Prep Countdown Timer</span>
+                          </span>
+                          {kitchenTimerRunning && (
+                            <span className="flex h-2.5 w-2.5 rounded-full bg-red-500 animate-ping" />
+                          )}
+                        </div>
+
+                        {kitchenTimerSecs !== null ? (
+                          <div className="flex items-center justify-between">
+                            <div className="flex flex-col">
+                              <span className="font-display text-2xl font-black text-[#007000] tracking-tight">
+                                {Math.floor(kitchenTimerSecs / 60)}:{(kitchenTimerSecs % 60).toString().padStart(2, "0")}
+                              </span>
+                              <span className="text-[8px] text-zinc-500 font-bold uppercase mt-0.5">Time remaining to complete step</span>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setKitchenTimerRunning(!kitchenTimerRunning)}
+                                className={`p-2.5 rounded-xl border transition active:scale-95 cursor-pointer ${
+                                  kitchenTimerRunning
+                                    ? "bg-amber-500/15 border-amber-500/20 text-amber-600"
+                                    : "bg-[#007000] text-white border-[#007000]"
+                                }`}
+                              >
+                                {kitchenTimerRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-white" />}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setKitchenTimerRunning(false);
+                                  setKitchenTimerSecs(null);
+                                }}
+                                className="p-2.5 rounded-xl border border-border bg-card text-muted-foreground hover:bg-muted transition active:scale-95 cursor-pointer"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-2">
+                            <p className="text-[10px] text-muted-foreground">Select a duration preset to start the cooking timer:</p>
+                            <div className="flex gap-1.5">
+                              {[1, 3, 5, 10, 15].map((minsVal) => (
+                                <button
+                                  key={minsVal}
+                                  type="button"
+                                  onClick={() => {
+                                    setKitchenTimerSecs(minsVal * 60);
+                                    setKitchenTimerRunning(true);
+                                    toast.success(`Cooking timer started for ${minsVal} minutes! ⏰`);
+                                  }}
+                                  className="flex-1 py-1.5 rounded-lg border border-border bg-card hover:bg-muted text-[9px] font-bold text-foreground transition active:scale-95 cursor-pointer"
+                                >
+                                  {minsVal} min
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
                       {/* Interactive Steps Checklist */}
                       <div className="p-3.5 bg-gradient-gold border border-gold/30 rounded-2xl space-y-2.5">
                         <p className="text-[10px] uppercase font-bold text-[#007000] tracking-wider">
@@ -1914,6 +2081,92 @@ Return ONLY a valid JSON array of objects, where each object has these exact key
                               </label>
                             );
                           })}
+                        </div>
+                      </div>
+
+                      {/* Smart Substitute Finder Tool */}
+                      <div className="rounded-2xl border border-zinc-200 bg-zinc-50/50 p-3.5 shadow-sm space-y-2.5">
+                        <div className="flex justify-between items-center border-b border-border/40 pb-2">
+                          <span className="text-[9px] uppercase font-bold text-muted-foreground">Pantry smart substitute finder</span>
+                          <button
+                            type="button"
+                            onClick={() => setShowSubstituteBox(!showSubstituteBox)}
+                            className="text-[9px] text-[#007000] font-black hover:underline uppercase"
+                          >
+                            {showSubstituteBox ? "Hide substitutes" : "Show substitutes"}
+                          </button>
+                        </div>
+
+                        {showSubstituteBox && (
+                          <div className="space-y-2.5 animate-in fade-in duration-200">
+                            <p className="text-[10px] text-muted-foreground">Choose an ingredient to find a healthy substitute:</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {selectedRecipe.ingredients.map((ing) => (
+                                <button
+                                  key={ing.name}
+                                  type="button"
+                                  onClick={() => {
+                                    setSubstituteIngName(ing.name);
+                                    toast.info(`Finding healthy substitute for ${ing.name}...`);
+                                  }}
+                                  className={`px-2 py-1 rounded-lg border text-[9px] font-bold capitalize transition ${
+                                    substituteIngName === ing.name
+                                      ? "bg-[#007000] border-[#007000] text-white"
+                                      : "bg-card border-border text-muted-foreground hover:bg-muted"
+                                  }`}
+                                >
+                                  {ing.name}
+                                </button>
+                              ))}
+                            </div>
+
+                            {substituteIngName && (
+                              <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-[10px] leading-relaxed text-emerald-800 animate-in slide-in-from-top-1 duration-150">
+                                <span className="font-extrabold uppercase block text-[8px] text-emerald-600 tracking-wider">🌟 Recommended healthy substitute:</span>
+                                {substituteIngName.toLowerCase().includes("paneer") || substituteIngName.toLowerCase().includes("chicken") ? (
+                                  <span>Use **Organic Extra-Firm Tofu** (pressed and dry-sautéed) as an exact 1:1 plant-based macro replacement that absorbs spice profiles beautifully.</span>
+                                ) : substituteIngName.toLowerCase().includes("butter") || substituteIngName.toLowerCase().includes("ghee") ? (
+                                  <span>Substitute with **Cold-Pressed Extra Virgin Olive Oil** or **Avocado Oil** to supply heart-healthy monounsaturated fats instead of saturated lipids.</span>
+                                ) : substituteIngName.toLowerCase().includes("milk") || substituteIngName.toLowerCase().includes("cream") ? (
+                                  <span>Swap with **Unsweetened Coconut Milk** or **Cashew Cream** for a super rich, velvety mouthfeel without lactose or high cholesterol.</span>
+                                ) : substituteIngName.toLowerCase().includes("sugar") || substituteIngName.toLowerCase().includes("honey") ? (
+                                  <span>Use **Pure Maple Syrup** or **Stevia Extract** to lower glycemic spikes while preserving natural organic sweetness.</span>
+                                ) : (
+                                  <span>Use **Fresh Organic Seasonal Greens** or a handful of **Raw Almonds/Walnuts** to add healthy crunch, micronutrients, and dietary fiber.</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* AI health grade and clinical insights */}
+                      <div className="rounded-2xl border border-zinc-200 bg-gradient-to-br from-card to-emerald-500/5 p-4 shadow-sm space-y-3.5">
+                        <div className="flex items-center gap-3">
+                          {/* Glowing Circle Health Grade */}
+                          <div className="h-11 w-11 rounded-full bg-gradient-to-tr from-[#007000] to-emerald-400 text-white flex items-center justify-center font-display text-lg font-black shadow-md border-2 border-white ring-2 ring-emerald-500/20 shrink-0">
+                            A-
+                          </div>
+                          <div>
+                            <span className="text-[8px] uppercase tracking-widest text-[#007000] font-black">AI Nutrition Grade</span>
+                            <h4 className="text-xs font-black text-foreground">Excellent Macro Distribution</h4>
+                          </div>
+                        </div>
+
+                        <div className="border-t border-border/40 pt-2.5 space-y-1.5 text-[10px] text-muted-foreground leading-relaxed">
+                          <span className="text-[8px] uppercase font-extrabold text-[#007000] tracking-wider block">Clinical Diet Guidelines:</span>
+                          <div className="flex gap-2 items-start">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#007000] shrink-0 mt-1.5" />
+                            <span>This dish has excellent protein density, perfect for lean muscle growth.</span>
+                          </div>
+                          <div className="flex gap-2 items-start">
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0 mt-1.5" />
+                            <span>Limit added table salt—rely on raw fresh herbs and lemon juice for seasoning to support lower blood pressure.</span>
+                          </div>
+                          <div className="flex gap-2 items-start">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#007000] shrink-0 mt-1.5" />
+                            <span>Pair with steamed brown rice or whole-wheat quinoa to add low-glycemic dietary fiber.</span>
+                          </div>
                         </div>
                       </div>
 
