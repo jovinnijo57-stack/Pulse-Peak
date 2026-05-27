@@ -37,12 +37,12 @@ function Progress() {
   // Avg kcal
   const avgKcal =
     activeCalorieData.length > 0
-      ? Math.round(activeCalorieData.reduce((a, c) => a + c.eaten, 0) / activeCalorieData.length)
+      ? Math.round(activeCalorieData.reduce((a: number, c: any) => a + c.eaten, 0) / activeCalorieData.length)
       : totals.eaten.kcal;
 
   // Active Days count
   // "according when the user marks calorie,workouts,water taken etc active days are calculated"
-  const activeDaysCount = activeCalorieData.filter((d) => d.eaten > 0 || d.burned > 0).length;
+  const activeDaysCount = activeCalorieData.filter((d: any) => d.eaten > 0 || d.burned > 0).length;
   const now = new Date();
   const daysInCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const totalDays = tab === "weekly" ? 7 : daysInCurrentMonth;

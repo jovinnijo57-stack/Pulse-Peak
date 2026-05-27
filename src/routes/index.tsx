@@ -31,10 +31,10 @@ function Splash() {
         if (session?.user) {
           const { data: profile } = await supabase
             .from("profiles")
-            .select("ai_plan")
+            .select("ai_plan, calorie_goal")
             .eq("id", session.user.id)
             .single();
-          if (profile && profile.ai_plan) {
+          if (profile && (profile.ai_plan || (profile.calorie_goal && profile.calorie_goal !== 2000))) {
             nav({ to: "/dashboard" });
             return;
           } else {

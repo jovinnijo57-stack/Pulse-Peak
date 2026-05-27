@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Mail, Lock, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { clsx } from "clsx";
 import { supabase } from "../lib/supabase";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({ component: Login });
 
@@ -19,22 +20,63 @@ function Login() {
   const [pw, setPw] = useState("");
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        supabase
-          .from("profiles")
-          .select("ai_plan")
-          .eq("id", session.user.id)
-          .single()
-          .then(({ data: profile }) => {
-            if (profile && profile.ai_plan) {
-              nav({ to: "/dashboard" });
-            } else {
-              nav({ to: "/onboarding" });
-            }
-          });
+    const handleGoogleLoginWithSelectAccount = async () => {
+      try {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: `${window.location.origin}/login`,
+            queryParams: {
+              access_type: "offline",
+              prompt: "select_account",
+            },
+          },
+        });
+        if (error) throw error;
+      } catch (err: any) {
+        setErrors({ google: err.message || "Google login failed." });
+      }
+    };
+
+    const hash = typeof window !== "undefined" ? window.location.hash || "" : "";
+    const search = typeof window !== "undefined" ? window.location.search || "" : "";
+    if (hash.includes("error=access_denied") || hash.includes("error_code=403") || search.includes("error=access_denied")) {
+      window.history.replaceState(null, "", window.location.pathname);
+      toast.info("Selecting different account...");
+      supabase.auth.signOut().then(() => {
+        handleGoogleLoginWithSelectAccount();
+      });
+      return;
+    }
+
+    async function checkSession() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("ai_plan, calorie_goal")
+            .eq("id", session.user.id)
+            .single();
+          if (profile && (profile.ai_plan || (profile.calorie_goal && profile.calorie_goal !== 2000))) {
+            nav({ to: "/dashboard" });
+          } else {
+            nav({ to: "/onboarding" });
+          }
+        }
+      } catch (err) {}
+    }
+    checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
+        checkSession();
       }
     });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [nav]);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -52,10 +94,10 @@ function Login() {
       if (data?.user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("ai_plan")
+          .select("ai_plan, calorie_goal")
           .eq("id", data.user.id)
           .single();
-        if (profile && profile.ai_plan) {
+        if (profile && (profile.ai_plan || (profile.calorie_goal && profile.calorie_goal !== 2000))) {
           nav({ to: "/dashboard" });
         } else {
           nav({ to: "/onboarding" });
@@ -71,7 +113,7 @@ function Login() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/onboarding`,
+          redirectTo: `${window.location.origin}/login`,
           queryParams: {
             access_type: "offline",
             prompt: "consent",

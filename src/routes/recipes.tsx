@@ -101,6 +101,18 @@ function RecipesPage() {
   // AI analysis state for the detail modal
   const [analyzingRecipeId, setAnalyzingRecipeId] = useState<string | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [checkedSteps, setCheckedSteps] = useState<Record<number, boolean>>({});
+  const [expandedIngredient, setExpandedIngredient] = useState<string | null>(null);
+  const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
+  const [customYtQuery, setCustomYtQuery] = useState("");
+  const [searchingCustomYt, setSearchingCustomYt] = useState(false);
+
+  useEffect(() => {
+    setCheckedSteps({});
+    setExpandedIngredient(null);
+    setActiveVideoId(null);
+    setCustomYtQuery("");
+  }, [selectedRecipe]);
 
   // Copy & Clear Planner Day States
   const [showCopyModal, setShowCopyModal] = useState(false);
@@ -440,82 +452,266 @@ function RecipesPage() {
     }
   };
 
-  // Gemini AI Analysis API Call
+  // Gemini + Groq + YouTube Cooking Analysis Call
   const handleAiAnalysis = async (recipe: Recipe) => {
     setAnalyzingRecipeId(recipe.id);
     setAiAnalysis(null);
 
-    // 1. Check static fallback
-    if (STATIC_AI_ANALYSIS[recipe.id]) {
-      setAiAnalysis(STATIC_AI_ANALYSIS[recipe.id]);
-      setAnalyzingRecipeId(null);
-      toast.success("Loaded chef's detailed analysis instantly.");
-      return;
-    }
-
     const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    if (!geminiKey) {
-      // Create instant realistic mock
+    const groqKey = import.meta.env.VITE_GROQ_API_KEY;
+    const youtubeKey = import.meta.env.VITE_YOUTUBE_API_KEY;
+
+    // Default static mapping of YouTube videos for high quality demo
+    const YOUTUBE_CATALOG: Record<string, string> = {
+      "1": "f6n0eS89g-A", // Mango Lassi
+      "2": "a03U45jFxOI", // Butter Chicken
+      "3": "K6c7tJqH5w8", // Garlic Butter Paneer
+      "4": "m115p-2900g",
+    };
+
+    let videoId = YOUTUBE_CATALOG[recipe.id] || "";
+
+    // 1. If no keys are configured, fallback to rich mock data
+    if (!geminiKey && !groqKey) {
       const mockResult = {
-        water: "2.5 cups",
+        water: "2 cups",
         time: recipe.time,
+        difficulty: "Easy",
+        youtubeVideoId: videoId || "f6n0eS89g-A",
         steps: recipe.instructions.map((step, idx) => {
           if (idx === 0 && recipe.ingredients[0]) {
-            return `Sauté the ${recipe.ingredients[0].qty}g of ${recipe.ingredients[0].name} in the pan.`;
+            return `Measure out ${recipe.ingredients[0].qty}g of ${recipe.ingredients[0].name} carefully.`;
           }
           return step;
         }),
+        ingredients: recipe.ingredients.map((ing) => ({
+          name: ing.name,
+          benefit: "High in nutrients and essential macros that support physical energy and focus.",
+          shopping_tip: "Choose fresh, organic options with bright coloring and zero blemishes.",
+          culinary_secret: "Sauté gently on medium heat to seal in natural moisture and oils.",
+        })),
       };
       setAiAnalysis(mockResult);
       setAnalyzingRecipeId(null);
-      toast.info("Using fallback smart analysis.");
+      toast.info("Using fallback smart analysis with mock insights.");
       return;
     }
 
     try {
-      const prompt = `Analyze this recipe: "${recipe.title}". 
+      // 2. Gemini Primary Culinary Analysis
+      let geminiData = {
+        water: "2 cups",
+        time: recipe.time,
+        difficulty: "Medium",
+        youtube_query: `how to cook ${recipe.title}`,
+        steps: recipe.instructions,
+      };
+
+      if (geminiKey) {
+        const geminiPrompt = `Analyze this recipe: "${recipe.title}". 
 Ingredients provided: ${JSON.stringify(recipe.ingredients)}.
 Please provide a professional culinary analysis:
-1. Estimated water needed for cooking (e.g., "2 cups", "500ml").
+1. Estimated water needed for cooking (e.g., "2 cups", "500ml", "None").
 2. Total cooking time (e.g., "35 minutes").
-3. 4-6 concise, step-by-step cooking instructions. IMPORTANT: Include the specific quantities of ingredients in the steps (e.g., "Add 200g of Paneer...").
-Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an array of strings).`;
+3. Difficulty level ("Easy", "Medium", "Hard").
+4. A highly optimized YouTube search phrase to find the cooking video of this recipe.
+5. 4-6 concise, step-by-step cooking instructions. IMPORTANT: Include the specific quantities of ingredients in the steps (e.g., "Add 200g of Paneer...").
+Return ONLY a valid JSON object with these exact keys: "water", "time", "difficulty", "youtube_query", "steps" (an array of strings).`;
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "application/json" },
-          }),
-        },
-      );
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: geminiPrompt }] }],
+              generationConfig: { responseMimeType: "application/json" },
+            }),
+          },
+        );
 
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) {
-        // Strip markdown backticks
-        const cleanJson = text
-          .replace(/```json/g, "")
-          .replace(/```/g, "")
-          .trim();
-        setAiAnalysis(JSON.parse(cleanJson));
-        toast.success("Successfully analyzed prep details using Gemini AI! ✨");
-      } else {
-        throw new Error("Empty response");
+        const data = await response.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
+          geminiData = JSON.parse(cleanJson);
+        }
       }
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to run Gemini AI analysis. Loading mock details.");
+
+      // 3. Groq Ingredient Deep Dive Analysis
+      let groqIngredients = recipe.ingredients.map((ing) => ({
+        name: ing.name,
+        benefit: "Rich in vital macros that fuel physical performance and cognitive focus.",
+        shopping_tip: "Select raw, unrefined options to ensure maximum nutritional preservation.",
+        culinary_secret: "Avoid overcooking to preserve flavor profiles and nutrient density.",
+      }));
+
+      if (groqKey) {
+        const groqPrompt = `As an elite AI Nutritionist, analyze these recipe ingredients: ${JSON.stringify(recipe.ingredients)}.
+For each ingredient, provide:
+1. A 1-sentence health/nutrition benefit.
+2. A 1-sentence shopping selection tip.
+3. A 1-sentence culinary secret for cooking this ingredient.
+Return ONLY a valid JSON array of objects, where each object has these exact keys: "name" (the ingredient name), "benefit", "shopping_tip", "culinary_secret".`;
+
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${groqKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [{ role: "user", content: groqPrompt }],
+            response_format: { type: "json_object" },
+          }),
+        });
+
+        const json = await response.json();
+        const content = json.choices?.[0]?.message?.content;
+        if (content) {
+          const parsed = JSON.parse(content);
+          groqIngredients = Array.isArray(parsed) ? parsed : (parsed.ingredients || parsed.data || groqIngredients);
+        }
+      }
+
+      // 4. YouTube Search API (If Key is present)
+      let youtubeVideos: { videoId: string; title: string; thumbnail: string }[] = [];
+      if (youtubeKey) {
+        try {
+          const query = geminiData.youtube_query || `how to cook ${recipe.title}`;
+          const ytUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=3&q=${encodeURIComponent(query)}&type=video&key=${youtubeKey}`;
+          const ytRes = await fetch(ytUrl);
+          const ytData = await ytRes.json();
+          if (ytData.items && ytData.items.length > 0) {
+            youtubeVideos = ytData.items
+              .filter((item: any) => item.id?.videoId)
+              .map((item: any) => ({
+                videoId: item.id.videoId,
+                title: item.snippet.title,
+                thumbnail: item.snippet.thumbnails?.default?.url || item.snippet.thumbnails?.medium?.url || "",
+              }));
+            if (youtubeVideos.length > 0) {
+              videoId = youtubeVideos[0].videoId;
+            }
+          }
+        } catch (ytErr) {
+          console.error("YouTube Search API Error:", ytErr);
+        }
+      }
+
+      // Fallback YouTube search query mapping if no videoId was resolved
+      if (!videoId) {
+        videoId = "f6n0eS89g-A"; // Default fallback (Mango Lassi cooking tutorial)
+      }
+
+      if (youtubeVideos.length === 0) {
+        youtubeVideos = [
+          {
+            videoId: videoId,
+            title: `How to cook ${recipe.title} (Tutorial)`,
+            thumbnail: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=120&auto=format&fit=crop&q=80",
+          },
+          {
+            videoId: "z1F6X3vYwMs",
+            title: "Pro Chef Secrets & Culinary Tips",
+            thumbnail: "https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=120&auto=format&fit=crop&q=80",
+          },
+          {
+            videoId: "f6n0eS89g-A",
+            title: "Tasty Healthy Cooking Ideas",
+            thumbnail: "https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=120&auto=format&fit=crop&q=80",
+          },
+        ];
+      }
+
+      const combinedResult = {
+        water: geminiData.water,
+        time: geminiData.time,
+        difficulty: geminiData.difficulty || "Medium",
+        youtubeVideoId: videoId,
+        youtubeVideos: youtubeVideos,
+        steps: geminiData.steps,
+        ingredients: groqIngredients,
+      };
+
+      setAiAnalysis(combinedResult);
+      setActiveVideoId(videoId);
+      toast.success("AI Analysis & Culinary Guide generated successfully! ✨");
+    } catch (err: any) {
+      console.error("Advanced AI Analysis Error:", err);
+      toast.error("Failed to run full AI analysis. Loading mock details.");
+      
+      const defaultVideos = [
+        {
+          videoId: videoId || "f6n0eS89g-A",
+          title: `How to cook ${recipe.title} (Tutorial)`,
+          thumbnail: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=120&auto=format&fit=crop&q=80",
+        },
+        {
+          videoId: "z1F6X3vYwMs",
+          title: "Pro Chef Secrets & Culinary Tips",
+          thumbnail: "https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=120&auto=format&fit=crop&q=80",
+        },
+      ];
+      
       setAiAnalysis({
         water: "2 cups",
         time: recipe.time,
+        difficulty: "Medium",
+        youtubeVideoId: videoId || "f6n0eS89g-A",
+        youtubeVideos: defaultVideos,
         steps: recipe.instructions,
+        ingredients: recipe.ingredients.map((ing) => ({
+          name: ing.name,
+          benefit: "High in nutrients and essential macros that support physical energy and focus.",
+          shopping_tip: "Choose fresh, organic options with bright coloring and zero blemishes.",
+          culinary_secret: "Sauté gently on medium heat to seal in natural moisture and oils.",
+        })),
       });
+      setActiveVideoId(videoId || "f6n0eS89g-A");
     } finally {
       setAnalyzingRecipeId(null);
+    }
+  };
+
+  const handleCustomYtSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customYtQuery.trim()) return;
+    setSearchingCustomYt(true);
+    const youtubeKey = import.meta.env.VITE_YOUTUBE_API_KEY;
+    try {
+      if (youtubeKey) {
+        const ytUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=3&q=${encodeURIComponent(customYtQuery)}&type=video&key=${youtubeKey}`;
+        const ytRes = await fetch(ytUrl);
+        const ytData = await ytRes.json();
+        if (ytData.items && ytData.items.length > 0) {
+          const results = ytData.items
+            .filter((item: any) => item.id?.videoId)
+            .map((item: any) => ({
+              videoId: item.id.videoId,
+              title: item.snippet.title,
+              thumbnail: item.snippet.thumbnails?.default?.url || item.snippet.thumbnails?.medium?.url || "",
+            }));
+          if (results.length > 0) {
+            setAiAnalysis((prev: any) => ({
+              ...prev,
+              youtubeVideos: results,
+              youtubeVideoId: results[0].videoId
+            }));
+            setActiveVideoId(results[0].videoId);
+            toast.success(`Found alternative cooking tutorials! 📺`);
+          } else {
+            toast.error("No videos found for this search.");
+          }
+        } else {
+          toast.error("No search results returned.");
+        }
+      } else {
+        toast.error("YouTube API Key not configured.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Alternative search failed.");
+    } finally {
+      setSearchingCustomYt(false);
     }
   };
 
@@ -1545,102 +1741,247 @@ Return ONLY a valid JSON object with these keys: "water", "time", "steps" (an ar
               </div>
 
               {/* Ingredients List */}
-              <div>
-                <p className="text-xs font-extrabold text-foreground mb-2 flex items-center gap-1.5">
-                  <ShoppingCart className="h-4 w-4 text-[#007000]" />
-                  <span>Ingredients List:</span>
-                </p>
-                <ul className="space-y-1.5">
-                  {selectedRecipe.ingredients.map((ing, idx) => (
-                    <li
-                      key={idx}
-                      className="flex justify-between items-center text-xs text-muted-foreground py-1 border-b border-border/30 last:border-0"
-                    >
-                      <span className="capitalize">{ing.name}</span>
-                      <span className="font-bold text-foreground">
-                        {ing.qty} {ing.unit || "g"}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              {!(activeTab === "planner" && (aiAnalysis || analyzingRecipeId === selectedRecipe.id)) && (
+                <div>
+                  <p className="text-xs font-extrabold text-foreground mb-2 flex items-center gap-1.5">
+                    <ShoppingCart className="h-4 w-4 text-[#007000]" />
+                    <span>Ingredients List:</span>
+                  </p>
+                  <ul className="space-y-1.5">
+                    {selectedRecipe.ingredients.map((ing, idx) => (
+                      <li
+                        key={idx}
+                        className="flex justify-between items-center text-xs text-muted-foreground py-1 border-b border-border/30 last:border-0"
+                      >
+                        <span className="capitalize">{ing.name}</span>
+                        <span className="font-bold text-foreground">
+                          {ing.qty} {ing.unit || "g"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {/* Cooking Instructions Steps */}
-              <div>
-                <p className="text-xs font-extrabold text-foreground mb-2 flex items-center gap-1.5">
-                  <Info className="h-4 w-4 text-[#007000]" />
-                  <span>Preparation Steps:</span>
-                </p>
-                <div className="space-y-2">
-                  {selectedRecipe.instructions.map((step, idx) => (
-                    <div
-                      key={idx}
-                      className="flex gap-2 text-xs text-muted-foreground leading-relaxed"
-                    >
-                      <span className="font-bold text-[#007000] min-w-[15px]">{idx + 1}.</span>
-                      <span>{step}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Gemini AI Cooking Analysis Block */}
-              <div className="border-t border-border/50 pt-4">
-                <div className="flex justify-between items-center mb-3">
-                  <div className="flex items-center gap-1.5">
-                    <Sparkles className="h-4.5 w-4.5 text-amber-500 animate-pulse" />
-                    <span className="text-xs font-extrabold text-foreground">
-                      Gemini AI Culinary Helper
-                    </span>
+              {!(activeTab === "planner" && (aiAnalysis || analyzingRecipeId === selectedRecipe.id)) && (
+                <div>
+                  <p className="text-xs font-extrabold text-foreground mb-2 flex items-center gap-1.5">
+                    <Info className="h-4 w-4 text-[#007000]" />
+                    <span>Preparation Steps:</span>
+                  </p>
+                  <div className="space-y-2">
+                    {selectedRecipe.instructions.map((step, idx) => (
+                      <div
+                        key={idx}
+                        className="flex gap-2 text-xs text-muted-foreground leading-relaxed"
+                      >
+                        <span className="font-bold text-[#007000] min-w-[15px]">{idx + 1}.</span>
+                        <span>{step}</span>
+                      </div>
+                    ))}
                   </div>
-                  {!aiAnalysis && !analyzingRecipeId && (
-                    <button
-                      onClick={() => handleAiAnalysis(selectedRecipe)}
-                      className="text-[10px] font-bold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-md hover:bg-amber-500/15"
-                    >
-                      Analyze now
-                    </button>
+                </div>
+              )}
+
+              {/* Gemini + Groq + YouTube AI Cooking Analysis Block (ONLY visible in Meal Planner tab per request) */}
+              {activeTab === "planner" && (
+                <div className="border-t border-border/50 pt-4">
+                  <div className="flex justify-between items-center mb-3">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="h-4.5 w-4.5 text-amber-500 animate-pulse" />
+                      <span className="text-xs font-extrabold text-foreground">
+                        AI Culinary Helper
+                      </span>
+                    </div>
+                  </div>
+
+                  {analyzingRecipeId === selectedRecipe.id ? (
+                    <div className="p-4 bg-muted/40 border border-dashed border-border rounded-2xl text-center text-xs text-muted-foreground animate-pulse flex flex-col items-center justify-center gap-2">
+                      <Sparkles className="h-5 w-5 text-amber-500 animate-spin" />
+                      <span>Analyzing quantities, steps & ingredients with AI...</span>
+                    </div>
+                  ) : aiAnalysis ? (
+                    <div className="space-y-4 animate-in fade-in duration-300">
+                      {/* YouTube Video Player with Selector Carousel & Search */}
+                      {(activeVideoId || aiAnalysis.youtubeVideoId) && (
+                        <div className="space-y-3">
+                          <span className="text-[10px] uppercase font-extrabold text-muted-foreground tracking-wider block">
+                            📺 Watch Cooking Tutorial:
+                          </span>
+                          <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-border shadow-sm bg-black">
+                            <iframe
+                              className="absolute inset-0 h-full w-full"
+                              src={`https://www.youtube.com/embed/${activeVideoId || aiAnalysis.youtubeVideoId}`}
+                              title="YouTube video player"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                            />
+                          </div>
+
+                          {/* Related Videos Carousel */}
+                          {aiAnalysis.youtubeVideos && aiAnalysis.youtubeVideos.length > 0 && (
+                            <div className="space-y-1.5">
+                              <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-wide block">
+                                Choose Other Tutorials / Related Videos:
+                              </span>
+                              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                                {aiAnalysis.youtubeVideos.map((video: any, vIdx: number) => {
+                                  const isActive = (activeVideoId || aiAnalysis.youtubeVideoId) === video.videoId;
+                                  return (
+                                    <button
+                                      key={vIdx}
+                                      onClick={() => setActiveVideoId(video.videoId)}
+                                      className={`flex items-start gap-2 p-1.5 rounded-xl border text-left min-w-[170px] max-w-[170px] transition shrink-0 ${
+                                        isActive
+                                          ? "border-[#007000] bg-[#007000]/5 ring-1 ring-[#007000]"
+                                          : "border-border bg-card hover:bg-muted/40"
+                                      }`}
+                                    >
+                                      <img
+                                        src={video.thumbnail}
+                                        alt={video.title}
+                                        className="h-8 w-11 rounded-md object-cover bg-muted shrink-0"
+                                      />
+                                      <p className="text-[9px] font-semibold text-foreground line-clamp-2 leading-tight">
+                                        {video.title}
+                                      </p>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Custom YouTube Search Feature */}
+                          <form onSubmit={handleCustomYtSearch} className="flex gap-2 items-center">
+                            <input
+                              type="text"
+                              value={customYtQuery}
+                              onChange={(e) => setCustomYtQuery(e.target.value)}
+                              placeholder="Search custom recipes on YouTube..."
+                              className="flex-1 rounded-xl border border-border bg-card px-3 py-2 text-[10px] outline-none focus:border-[#007000] shadow-sm"
+                            />
+                            <button
+                              type="submit"
+                              disabled={searchingCustomYt || !customYtQuery.trim()}
+                              className="px-3.5 py-2 rounded-xl bg-[#007000] hover:bg-[#007000]/90 text-white font-bold text-[10px] active:scale-95 transition disabled:opacity-50"
+                            >
+                              {searchingCustomYt ? "..." : "Search"}
+                            </button>
+                          </form>
+                        </div>
+                      )}
+
+                      {/* Stats bar */}
+                      <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
+                        <div className="bg-muted/40 rounded-xl p-2 border border-border">
+                          <p className="text-muted-foreground font-semibold">Water Level</p>
+                          <p className="font-bold text-foreground mt-0.5">{aiAnalysis.water}</p>
+                        </div>
+                        <div className="bg-muted/40 rounded-xl p-2 border border-border">
+                          <p className="text-muted-foreground font-semibold">Prep Time</p>
+                          <p className="font-bold text-foreground mt-0.5">{aiAnalysis.time}</p>
+                        </div>
+                        <div className="bg-emerald-500/10 rounded-xl p-2 border border-emerald-500/20">
+                          <p className="text-emerald-600 font-bold">Difficulty</p>
+                          <p className="font-extrabold text-emerald-600 mt-0.5">{aiAnalysis.difficulty}</p>
+                        </div>
+                      </div>
+
+                      {/* Interactive Steps Checklist */}
+                      <div className="p-3.5 bg-gradient-gold border border-gold/30 rounded-2xl space-y-2.5">
+                        <p className="text-[10px] uppercase font-bold text-[#007000] tracking-wider">
+                          Interactive Prep Steps (Qty Inline):
+                        </p>
+                        <div className="space-y-2">
+                          {aiAnalysis.steps.map((step: string, idx: number) => {
+                            const isChecked = !!checkedSteps[idx];
+                            return (
+                              <label
+                                key={idx}
+                                className={`flex gap-3 text-[11px] leading-relaxed cursor-pointer p-1.5 rounded-lg transition hover:bg-white/40 ${
+                                  isChecked ? "opacity-50 line-through" : ""
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => setCheckedSteps(prev => ({ ...prev, [idx]: !prev[idx] }))}
+                                  className="mt-0.5 rounded border-border text-[#007000] focus:ring-[#007000]/30"
+                                />
+                                <span>{step}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Ingredient Deep Dives */}
+                      {aiAnalysis.ingredients && aiAnalysis.ingredients.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-[10px] uppercase font-extrabold text-muted-foreground tracking-wider block">
+                            🌱 Ingredient Benefits & Insights:
+                          </span>
+                          <div className="space-y-2">
+                            {aiAnalysis.ingredients.map((ing: any, idx: number) => {
+                              const isExpanded = expandedIngredient === ing.name;
+                              return (
+                                <div
+                                  key={idx}
+                                  className="rounded-xl border border-border bg-card overflow-hidden shadow-sm"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedIngredient(isExpanded ? null : ing.name)}
+                                    className="w-full px-3.5 py-2.5 flex items-center justify-between text-left text-xs font-bold text-foreground hover:bg-muted/40 transition"
+                                  >
+                                    <span className="capitalize">{ing.name}</span>
+                                    <ChevronRight
+                                      className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-250 ${
+                                        isExpanded ? "rotate-90" : ""
+                                      }`}
+                                    />
+                                  </button>
+                                  {isExpanded && (
+                                    <div className="px-3.5 pb-3 pt-1 text-[11px] text-muted-foreground space-y-2 border-t border-border/20 bg-muted/20 animate-in fade-in duration-150">
+                                      <div>
+                                        <span className="font-semibold text-emerald-600 block">🌟 Benefit:</span>
+                                        <span>{ing.benefit}</span>
+                                      </div>
+                                      <div>
+                                        <span className="font-semibold text-amber-600 block">🛒 Selection:</span>
+                                        <span>{ing.shopping_tip}</span>
+                                      </div>
+                                      <div>
+                                        <span className="font-semibold text-[#007000] block">🍳 Culinary Secret:</span>
+                                        <span>{ing.culinary_secret}</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center p-3">
+                      <p className="text-[11px] text-muted-foreground leading-normal mb-3">
+                        Estimate cooking water levels, interactive prep quantities, ingredient deep dives, and load a YouTube cooking tutorial.
+                      </p>
+                      <button
+                        onClick={() => handleAiAnalysis(selectedRecipe)}
+                        className="w-full py-2.5 rounded-xl border border-[#007000] text-xs font-bold text-[#007000] hover:bg-[#007000]/10 active:scale-95 transition flex items-center justify-center gap-1.5 shadow-sm"
+                      >
+                        <Sparkles className="h-4 w-4 animate-pulse" />
+                        <span>Analyze quantity and steps with AI</span>
+                      </button>
+                    </div>
                   )}
                 </div>
-
-                {analyzingRecipeId === selectedRecipe.id ? (
-                  <div className="p-3 bg-muted/40 border border-dashed border-border rounded-xl text-center text-xs text-muted-foreground animate-pulse">
-                    Analyzing ingredients & volumes with Gemini API...
-                  </div>
-                ) : aiAnalysis ? (
-                  <div className="p-3.5 bg-gradient-gold border border-gold/30 rounded-2xl space-y-2.5 animate-in fade-in duration-200">
-                    <div className="grid grid-cols-2 gap-2 text-[10px]">
-                      <div>
-                        <span className="text-muted-foreground font-semibold">Water Needed:</span>
-                        <span className="ml-1 font-bold text-foreground">{aiAnalysis.water}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground font-semibold">Cooking Time:</span>
-                        <span className="ml-1 font-bold text-foreground">{aiAnalysis.time}</span>
-                      </div>
-                    </div>
-                    <div className="border-t border-border/30 pt-2 space-y-2">
-                      <p className="text-[10px] uppercase font-bold text-[#007000] tracking-wider">
-                        Inline Qty Cooking Steps:
-                      </p>
-                      {aiAnalysis.steps.map((step: string, idx: number) => (
-                        <div
-                          key={idx}
-                          className="flex gap-2 text-[11px] text-muted-foreground leading-relaxed"
-                        >
-                          <span className="font-bold text-amber-500">{idx + 1}.</span>
-                          <span>{step}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-[11px] text-muted-foreground">
-                    Click analyze to estimate cooking water levels and inline quantities using
-                    Google Gemini.
-                  </p>
-                )}
-              </div>
+              )}
 
               {/* Single Add to Cart Action removed per request */}
             </div>

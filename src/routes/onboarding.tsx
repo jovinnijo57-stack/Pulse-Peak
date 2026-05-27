@@ -46,27 +46,44 @@ function Onboarding() {
         if (userId) {
           const { data: profileData } = await supabase
             .from("profiles")
-            .select("ai_plan, phone, name")
+            .select("ai_plan, calorie_goal, phone, name")
             .eq("id", userId)
             .single();
-          if (profileData && profileData.ai_plan) {
+          if (profileData && (profileData.ai_plan || (profileData.calorie_goal && profileData.calorie_goal !== 2000))) {
             nav({ to: "/dashboard" });
             return;
           }
           if (profileData) {
             setData((prev: any) => ({ ...prev, phone: profileData.phone || "" }));
+
+            const isPlaceholderName = (n?: string) =>
+              !n ||
+              n.trim() === "" ||
+              n.includes("PulsePeak") ||
+              n.includes("New User") ||
+              n.toLowerCase() === "user";
+
+            const rawMetaName =
+              authData?.user?.user_metadata?.full_name || authData?.user?.user_metadata?.name || "";
+
+            const resolvedName =
+              profileData.name && !isPlaceholderName(profileData.name)
+                ? profileData.name
+                : rawMetaName && !isPlaceholderName(rawMetaName)
+                  ? rawMetaName
+                  : profileData.name || "";
+
             setProfile({
               phone: profileData.phone || "",
-              name:
-                profileData.name ||
-                authData?.user?.user_metadata?.full_name ||
-                authData?.user?.user_metadata?.name ||
-                "",
+              name: resolvedName,
             });
           }
           // Check if they need to enter a phone number (e.g. Google login users)
           // Since email signups require phone upfront, anyone missing it needs the popup
-          const hasPhone = !!(profileData?.phone || user?.user_metadata?.phone || user?.phone);
+          const isPhoneValid = (p?: string) => p && p.trim() !== "" && p.replace(/\D/g, "").length >= 10;
+          const hasPhone = !!(isPhoneValid(profileData?.phone) || 
+                             isPhoneValid(user?.user_metadata?.phone) || 
+                             isPhoneValid(user?.phone));
           if (!hasPhone) {
             setShowPhonePopup(true);
           } else {
@@ -275,23 +292,27 @@ Provide a JSON response with exactly this structure:
       const { data: authData } = await supabase.auth.getUser();
       const userId = authData?.user?.id;
       if (userId) {
-        const { data: existingProfile, error: checkProfileError } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("id", userId)
-          .single();
+        const isPlaceholderName = (n?: string) =>
+          !n ||
+          n.trim() === "" ||
+          n.includes("PulsePeak") ||
+          n.includes("New User") ||
+          n.toLowerCase() === "user";
 
-        if (checkProfileError && checkProfileError.code !== "PGRST116") {
-          throw checkProfileError;
-        }
+        const rawMetaName =
+          authData.user?.user_metadata?.full_name || authData.user?.user_metadata?.name || "";
+
+        const resolvedName =
+          profile.name && !isPlaceholderName(profile.name)
+            ? profile.name
+            : rawMetaName && !isPlaceholderName(rawMetaName)
+              ? rawMetaName
+              : profile.name || "PulsePeak User";
 
         const profilePayload = {
+          id: userId,
           email: authData.user?.email,
-          name:
-            profile.name ||
-            authData.user?.user_metadata?.full_name ||
-            authData.user?.user_metadata?.name ||
-            "PulsePeak User",
+          name: resolvedName,
           phone:
             data.phone ||
             profile.phone ||
@@ -314,19 +335,11 @@ Provide a JSON response with exactly this structure:
           workout_type: data.workoutType,
         };
 
-        if (existingProfile) {
-          const { error: updateError } = await supabase
-            .from("profiles")
-            .update(profilePayload)
-            .eq("id", userId);
-          if (updateError) throw updateError;
-        } else {
-          const { error: insertError } = await supabase.from("profiles").insert({
-            id: userId,
-            ...profilePayload,
-          });
-          if (insertError) throw insertError;
-        }
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update(profilePayload)
+          .eq("id", userId);
+        if (updateError) throw updateError;
 
         saveWeightHistory(data.weightKg, authData.user?.email, userId);
       }

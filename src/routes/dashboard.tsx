@@ -28,13 +28,20 @@ function Dashboard() {
   const { profile } = state;
 
   let firstName = "User";
-  if (
-    profile.name &&
-    profile.name.trim() !== "" &&
-    !profile.name.includes("PulsePeak") &&
-    !profile.name.includes("New User")
-  ) {
+  const isPlaceholderName = (n?: string) =>
+    !n ||
+    n.trim() === "" ||
+    n.includes("PulsePeak") ||
+    n.includes("New User") ||
+    n.toLowerCase() === "user";
+
+  if (profile.name && !isPlaceholderName(profile.name)) {
     firstName = profile.name.split(" ")[0];
+  } else if (profile.email && profile.email.trim() !== "") {
+    const prefix = profile.email.split("@")[0].split(".")[0].split("_")[0];
+    if (prefix && prefix.toLowerCase() !== "user") {
+      firstName = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+    }
   }
 
   const weightHistory = getWeightHistory(profile.email, profile.weightKg);

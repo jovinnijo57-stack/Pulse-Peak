@@ -219,7 +219,7 @@ function AIChat() {
                   </div>
                 )}
                 <div className="break-words">
-                  <Markdown options={MarkdownOptions}>{msg.content}</Markdown>
+                  <Markdown options={MarkdownOptions as any}>{msg.content}</Markdown>
                 </div>
               </div>
             </div>

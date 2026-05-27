@@ -101,11 +101,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const userId = authData?.user?.id || null;
         if (userId) {
           // Fetch Profile
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", userId)
+            .single();
+
           if (profileData) {
             const rawMetaName =
               authData?.user?.user_metadata?.full_name || authData?.user?.user_metadata?.name || "";
-            const isPlaceholderName = (n: string) =>
-              !n || n.includes("PulsePeak") || n.includes("New User");
+            const isPlaceholderName = (n?: string) =>
+              !n ||
+              n.trim() === "" ||
+              n.includes("PulsePeak") ||
+              n.includes("New User") ||
+              n.toLowerCase() === "user";
             const resolvedName =
               profileData.name && !isPlaceholderName(profileData.name)
                 ? profileData.name
@@ -280,27 +290,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
               supabase
                 .from("profiles")
-                .select("id")
+                .update(payload)
                 .eq("id", userId)
-                .single()
-                .then(({ data: existingProfile }) => {
-                  if (existingProfile) {
-                    const { id, ...updatePayload } = payload;
-                    supabase
-                      .from("profiles")
-                      .update(updatePayload)
-                      .eq("id", userId)
-                      .then(({ error }) => {
-                        if (error) console.error("Store setProfile update error:", error);
-                      });
-                  } else {
-                    supabase
-                      .from("profiles")
-                      .insert(payload)
-                      .then(({ error }) => {
-                        if (error) console.error("Store setProfile insert error:", error);
-                      });
-                  }
+                .then(({ error }) => {
+                  if (error) console.error("Store setProfile update error:", error);
                 });
             }
           });

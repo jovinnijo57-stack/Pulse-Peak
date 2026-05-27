@@ -19,6 +19,7 @@ import {
   Heart,
   Trophy,
   ShieldAlert,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -212,13 +213,36 @@ function ExercisePage() {
       });
   }, []);
 
-  // Set modal image source and reset states
+  const [ytVideoId, setYtVideoId] = useState<string | null>(null);
+  const [loadingYt, setLoadingYt] = useState(false);
+
+  // Set modal image source and reset states + fetch YouTube demo video using Key
   useEffect(() => {
     if (selected) {
       setImgSrc(`/exercises/${selected.gif_url}`);
       setImageError(false);
       setTimeElapsed(0);
       setTimerRunning(false);
+      setYtVideoId(null);
+
+      const youtubeKey = import.meta.env.VITE_YOUTUBE_API_KEY;
+      if (youtubeKey) {
+        setLoadingYt(true);
+        const query = `${selected.name} exercise form tutorial`;
+        fetch(
+          `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${encodeURIComponent(query)}&type=video&key=${youtubeKey}`
+        )
+          .then((res) => res.json())
+          .then((data) => {
+            const foundId = data.items?.[0]?.id?.videoId;
+            if (foundId) {
+              setYtVideoId(foundId);
+            }
+          })
+          .catch((err) => console.error("YouTube exercise fetch error:", err))
+          .finally(() => setLoadingYt(false));
+      }
+
       if (synthRef.current) {
         synthRef.current.cancel();
       }
@@ -337,37 +361,63 @@ function ExercisePage() {
     return 5;
   };
 
-  // Category and Equipment Filters list
-  const categoryOptions = [
-    "All",
-    "Waist",
-    "Upper Arms",
-    "Upper Legs",
-    "Back",
-    "Chest",
-    "Shoulders",
-    "Lower Legs",
-    "Cardio",
+  // Categories mapping to match the uploaded photo
+  const categoriesList = [
+    {
+      id: "strength",
+      title: "Power Lifting",
+      tag: "Overs Range",
+      icon: "🏋️",
+      category: "Upper Legs",
+      image: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=400&auto=format&fit=crop&q=80",
+    },
+    {
+      id: "cardio",
+      title: "Dynamic Cardio",
+      tag: "Lenn Range",
+      icon: "🏃",
+      category: "Cardio",
+      image: "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=400&auto=format&fit=crop&q=80",
+    },
+    {
+      id: "waist",
+      title: "High Workouts",
+      tag: "Earn 3 Range",
+      icon: "🤸",
+      category: "Waist",
+      image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&auto=format&fit=crop&q=80",
+    },
+    {
+      id: "arms",
+      title: "High Perfaxity",
+      tag: "Exit Range",
+      icon: "💪",
+      category: "Upper Arms",
+      image: "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=400&auto=format&fit=crop&q=80",
+    },
+    {
+      id: "chest",
+      title: "Chest Master",
+      tag: "Pect Range",
+      icon: "🦍",
+      category: "Chest",
+      image: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400&auto=format&fit=crop&q=80",
+    },
+    {
+      id: "flexibility",
+      title: "Mind & Body",
+      tag: "Stretch Range",
+      icon: "🧘",
+      category: "Back",
+      image: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400&auto=format&fit=crop&q=80",
+    },
   ];
 
-  const equipmentOptions = [
-    "All",
-    "Body weight",
-    "Barbell",
-    "Dumbbell",
-    "Cable",
-    "Band",
-    "Kettlebell",
-    "Machine",
-  ];
-
-  // Filter Exercises Database list
   const filteredExercises = allExercises.filter((ex) => {
     const matchesSearch =
       ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       ex.target.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ex.equipment.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ex.muscle_group.toLowerCase().includes(searchQuery.toLowerCase());
+      ex.equipment.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesCategory =
       selectedCategory === "All" ||
@@ -376,35 +426,68 @@ function ExercisePage() {
 
     const matchesEquipment =
       selectedEquipment === "All" ||
-      ex.equipment.toLowerCase().includes(selectedEquipment.toLowerCase());
+      ex.equipment.toLowerCase() === selectedEquipment.toLowerCase();
 
     return matchesSearch && matchesCategory && matchesEquipment;
   });
 
   return (
     <PhoneShell>
-      <ScreenHeader title="Ai Gym Exercises" subtitle="1,300+ professional animations & videos" />
+      {/* Dark volt styling variables */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+        .bg-volt {
+          background-color: #ccff00 !important;
+        }
+        .text-volt {
+          color: #ccff00 !important;
+        }
+        .border-volt {
+          border-color: #ccff00 !important;
+        }
+        .focus-within-volt:focus-within {
+          border-color: #ccff00 !important;
+          box-shadow: 0 0 10px rgba(204, 255, 0, 0.2) !important;
+        }
+      `,
+        }}
+      />
+
+      {/* Sleek Dark-themed header matching photo */}
+      <div className="bg-zinc-950 px-5 pt-6 pb-2.5 flex items-center justify-between border-b border-zinc-900">
+        <div className="flex items-center gap-2">
+          <span className="font-display text-xl font-black italic tracking-tighter text-white">
+            HLK
+          </span>
+          <span className="h-1.5 w-1.5 rounded-full bg-volt" />
+        </div>
+        <div className="h-9 w-9 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400">
+          <Dumbbell className="h-4.5 w-4.5" />
+        </div>
+      </div>
 
       {/* Main Database Content Grid */}
-      <div className="flex-1 overflow-y-auto px-5 pt-4 pb-28">
-        {/* Voice & Keyboard Search Bar */}
+      <div className="flex-grow overflow-y-auto px-5 pt-4 pb-28 bg-zinc-950 text-white scrollbar-none">
+        
+        {/* Search Bar - Sleek Dark matching photo */}
         <div className="relative flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
+          <div className="relative flex-1 focus-within-volt rounded-2xl overflow-hidden transition-all duration-200">
+            <Search className="absolute left-4 top-3.5 h-4 w-4 text-zinc-500" />
             <input
               type="text"
-              placeholder="Search exercise, muscles, target..."
+              placeholder="Search exercises or targets..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
-                setVisibleCount(12); // reset page count
+                setVisibleCount(12);
               }}
-              className="w-full pl-10 pr-10 py-3 rounded-2xl border border-border bg-card text-xs focus:border-[#007000] focus:outline-none transition shadow-sm text-foreground"
+              className="w-full pl-11 pr-10 py-3.5 bg-zinc-900 border border-zinc-800 text-xs text-white placeholder:text-zinc-500 outline-none focus:outline-none transition"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3.5 top-3.5 text-muted-foreground hover:text-foreground"
+                className="absolute right-4 top-3.5 text-zinc-500 hover:text-white"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -412,10 +495,10 @@ function ExercisePage() {
           </div>
           <button
             onClick={handleVoiceSearch}
-            className={`p-3 rounded-2xl border transition active:scale-95 ${
+            className={`p-3.5 rounded-2xl border transition active:scale-95 ${
               isListening
                 ? "bg-red-500/10 border-red-500/30 text-red-500 animate-pulse"
-                : "bg-card border-border hover:bg-muted text-muted-foreground"
+                : "bg-zinc-900 border-zinc-800 hover:bg-zinc-800 text-zinc-400"
             }`}
             title="Voice Search"
           >
@@ -423,76 +506,116 @@ function ExercisePage() {
           </button>
         </div>
 
-        {/* Category Selector Pills */}
-        <div className="mt-4 space-y-3">
-          <div>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
-              Muscle Group
+        {/* Premium Banner matching photo */}
+        <div className="mt-5 rounded-3xl overflow-hidden relative border border-zinc-800 bg-gradient-to-r from-zinc-900 via-zinc-950 to-zinc-900 p-5 flex items-center justify-between shadow-lg">
+          <div className="absolute top-0 right-0 bottom-0 left-1/3 bg-cover bg-center opacity-30 mix-blend-screen pointer-events-none" 
+               style={{ backgroundImage: `url('https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=600&auto=format&fit=crop&q=80')` }} 
+          />
+          <div className="relative z-10 space-y-2 flex-1 pr-6">
+            <span className="text-[9px] uppercase tracking-widest text-volt font-black bg-zinc-950 border border-volt/20 px-2 py-0.5 rounded-md inline-block">
+              Premium Workout
             </span>
-            <div className="flex gap-1.5 overflow-x-auto pb-1 mt-1 scrollbar-none">
-              {categoryOptions.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => {
-                    setSelectedCategory(cat);
-                    setVisibleCount(12);
-                  }}
-                  className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-semibold border transition active:scale-95 ${
-                    selectedCategory === cat
-                      ? "bg-[#007000] text-white border-[#007000]"
-                      : "bg-card border-border hover:bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Equipment Selector Pills */}
-          <div>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
-              Equipment Type
-            </span>
-            <div className="flex gap-1.5 overflow-x-auto pb-1 mt-1 scrollbar-none">
-              {equipmentOptions.map((eq) => (
-                <button
-                  key={eq}
-                  onClick={() => {
-                    setSelectedEquipment(eq);
-                    setVisibleCount(12);
-                  }}
-                  className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-semibold border transition active:scale-95 ${
-                    selectedEquipment === eq
-                      ? "bg-[#007000] text-white border-[#007000]"
-                      : "bg-card border-border hover:bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {eq}
-                </button>
-              ))}
-            </div>
+            <h2 className="font-display text-xl font-extrabold tracking-tight leading-tight uppercase italic text-white">
+              Workout <br />
+              <span className="text-volt">Functionality</span>
+            </h2>
+            <p className="text-[10px] text-zinc-400 max-w-[150px] leading-relaxed">
+              Step up your limits. Play customized sessions.
+            </p>
+            <button
+              onClick={() => {
+                setSelectedCategory("All");
+                toast.info("Showing complete workout catalog!");
+              }}
+              className="bg-volt text-black text-[10px] font-black px-4.5 py-2 rounded-full uppercase tracking-wider transition active:scale-95 shadow-md mt-1 cursor-pointer"
+            >
+              Start Now
+            </button>
           </div>
         </div>
 
-        {/* Grid Lists of Workouts */}
-        <div className="mt-5 space-y-4">
+        {/* Categories Grid matching photo */}
+        <div className="mt-6 space-y-3.5">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-              Exercise Catalog
+            <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">
+              Categories
             </h3>
-            <span className="text-[10px] bg-muted/80 text-muted-foreground px-2.5 py-0.5 rounded-full font-bold border border-border/50">
-              {filteredExercises.length} Found
+            <button
+              onClick={() => {
+                setSelectedCategory("All");
+                setSelectedEquipment("All");
+                setSearchQuery("");
+                toast.success("Filters reset to show all!");
+              }}
+              className="text-[10px] font-bold text-volt uppercase hover:underline"
+            >
+              See All
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3.5">
+            {categoriesList.map((cat) => {
+              const isSelected = selectedCategory.toLowerCase() === cat.category.toLowerCase();
+              return (
+                <div
+                  key={cat.id}
+                  onClick={() => {
+                    setSelectedCategory(isSelected ? "All" : cat.category);
+                    setVisibleCount(12);
+                    toast.success(`Category filtered to ${cat.title}! 🏋️`);
+                  }}
+                  className={`rounded-3xl overflow-hidden aspect-[4/3.2] relative border transition duration-300 cursor-pointer shadow-md group ${
+                    isSelected ? "border-volt scale-[1.02]" : "border-zinc-800 hover:border-zinc-700"
+                  }`}
+                >
+                  <img
+                    src={cat.image}
+                    alt={cat.title}
+                    className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" />
+                  
+                  {/* Top Right Checkmark matching photo */}
+                  <div className="absolute top-2.5 right-2.5">
+                    <div className={`h-5 w-5 rounded-full flex items-center justify-center transition-all ${
+                      isSelected ? "bg-volt text-black" : "bg-black/50 text-white/50"
+                    }`}>
+                      <Check className="h-3 w-3" strokeWidth={3} />
+                    </div>
+                  </div>
+
+                  <div className="absolute bottom-3 left-3 right-3 text-white">
+                    <p className="font-display text-xs font-extrabold leading-tight tracking-tight uppercase line-clamp-1">
+                      {cat.title}
+                    </p>
+                    <p className="text-[8px] text-zinc-400 font-semibold tracking-wide mt-0.5 uppercase">
+                      {cat.tag}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Exercises Catalog Selector List */}
+        <div className="mt-8 space-y-4">
+          <div className="flex items-center justify-between border-t border-zinc-900 pt-5">
+            <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">
+              Exercise Library
+            </h3>
+            <span className="text-[9px] bg-zinc-900 text-zinc-400 px-2 py-0.5 rounded-full font-bold border border-zinc-800">
+              {filteredExercises.length} Exercises
             </span>
           </div>
 
           {loading ? (
-            <div className="py-16 text-center text-xs text-muted-foreground animate-pulse">
+            <div className="py-16 text-center text-xs text-zinc-500 animate-pulse">
               Loading exercise database...
             </div>
           ) : filteredExercises.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-border bg-card/50 py-16 text-center text-xs text-muted-foreground">
-              No matching exercises found. Try refining search query or pills.
+            <div className="rounded-3xl border border-dashed border-zinc-800 bg-zinc-900/50 py-16 text-center text-xs text-zinc-500">
+              No matching exercises found. Click "See All" above to clear filters!
             </div>
           ) : (
             <div className="grid gap-3">
@@ -502,31 +625,31 @@ function ExercisePage() {
                   <div
                     key={ex.id}
                     onClick={() => setSelected(ex)}
-                    className="flex items-center justify-between rounded-2xl border border-border bg-gradient-card p-3.5 shadow-sm hover:border-[#007000]/40 transition duration-200 cursor-pointer group"
+                    className="flex items-center justify-between rounded-2xl border border-zinc-900 bg-gradient-to-br from-zinc-900 to-zinc-950 p-3.5 shadow-sm hover:border-volt/30 transition duration-200 cursor-pointer group"
                   >
                     <div className="flex items-center gap-3.5">
-                      <span className="grid h-12 w-12 place-items-center rounded-xl bg-muted/70 text-xl shadow-inner group-hover:scale-105 transition-transform border border-border/30">
+                      <span className="grid h-12 w-12 place-items-center rounded-xl bg-zinc-900 text-xl border border-zinc-800 shadow-inner group-hover:scale-105 transition-transform">
                         {icon}
                       </span>
                       <div>
-                        <p className="text-xs font-bold text-foreground capitalize group-hover:text-[#007000] transition-colors line-clamp-1">
+                        <p className="text-xs font-bold text-white capitalize group-hover:text-volt transition-colors line-clamp-1">
                           {ex.name}
                         </p>
                         <div className="flex items-center gap-1.5 mt-1">
-                          <span className="text-[9px] uppercase tracking-wider bg-muted text-muted-foreground px-2 py-0.5 rounded-md font-bold">
+                          <span className="text-[8px] uppercase tracking-wider bg-zinc-900 text-zinc-400 px-2 py-0.5 rounded-md font-bold">
                             {ex.equipment}
                           </span>
-                          <span className="text-[9px] uppercase tracking-wider bg-[#007000]/10 text-[#007000] px-2 py-0.5 rounded-md font-bold">
+                          <span className="text-[8px] uppercase tracking-wider bg-volt/10 text-volt px-2 py-0.5 rounded-md font-bold">
                             {ex.target}
                           </span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                        View Demo
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity font-bold">
+                        Start Video
                       </span>
-                      <ChevronRight className="h-4.5 w-4.5 text-muted-foreground/60 group-hover:text-[#007000] group-hover:translate-x-0.5 transition" />
+                      <ChevronRight className="h-4.5 w-4.5 text-zinc-600 group-hover:text-volt group-hover:translate-x-0.5 transition" />
                     </div>
                   </div>
                 );
@@ -536,7 +659,7 @@ function ExercisePage() {
               {filteredExercises.length > visibleCount && (
                 <button
                   onClick={() => setVisibleCount((prev) => prev + 12)}
-                  className="w-full mt-2 py-3 rounded-2xl border border-border hover:bg-muted text-xs font-bold text-muted-foreground transition active:scale-95 bg-card/50"
+                  className="w-full mt-2 py-3.5 rounded-2xl border border-zinc-900 bg-zinc-900/40 hover:bg-zinc-900 text-xs font-black text-zinc-400 hover:text-volt transition active:scale-95 cursor-pointer"
                 >
                   Load More Workouts ({filteredExercises.length - visibleCount} remaining)
                 </button>
@@ -549,40 +672,52 @@ function ExercisePage() {
       {/* Slide-Up Exercise Detail & Log Modal with Video Demonstration */}
       {selected && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-foreground/45 backdrop-blur-sm p-0 sm:p-4"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-zinc-950/75 backdrop-blur-sm p-0 sm:p-4 text-white"
           onClick={() => setSelected(null)}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-card border border-border/80 shadow-glow p-5 flex flex-col max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom duration-200"
+            className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-zinc-900 border border-zinc-800 shadow-glow p-5 flex flex-col max-h-[85vh] overflow-y-auto animate-in slide-up duration-200"
           >
-            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-muted block sm:hidden" />
+            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-zinc-800 block sm:hidden" />
 
             <div className="flex items-start justify-between">
               <div>
-                <span className="text-[9px] uppercase tracking-widest text-[#007000] font-bold bg-[#007000]/10 border border-[#007000]/20 px-2.5 py-0.5 rounded-md">
+                <span className="text-[9px] uppercase tracking-widest text-volt font-black bg-volt/10 border border-volt/20 px-2.5 py-0.5 rounded-md">
                   {selected.category}
                 </span>
-                <p className="font-display text-lg font-extrabold mt-1.5 capitalize text-foreground">
+                <p className="font-display text-lg font-extrabold mt-1.5 capitalize text-white">
                   {selected.name}
                 </p>
               </div>
               <button
                 onClick={() => setSelected(null)}
-                className="rounded-xl border border-border bg-muted/40 p-1.5 text-muted-foreground hover:text-foreground active:scale-95 transition"
+                className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-1.5 text-zinc-400 hover:text-white active:scale-95 transition"
               >
                 <X className="h-4.5 w-4.5" />
               </button>
             </div>
 
-            {/* Workout GIF Demonstration Video Frame */}
-            <div className="mt-4 aspect-video w-full overflow-hidden rounded-2xl border border-border bg-muted/80 flex items-center justify-center relative shadow-inner">
-              {!imageError ? (
+            {/* Dynamic YouTube Video Demonstration Player (Uses custom API Key!) */}
+            <div className="mt-4 aspect-video w-full overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 flex items-center justify-center relative shadow-inner">
+              {loadingYt ? (
+                <div className="flex flex-col items-center gap-2 text-zinc-500 animate-pulse">
+                  <Sparkles className="h-8 w-8 text-volt animate-spin" />
+                  <p className="text-[10px] font-bold">Searching YouTube tutorials...</p>
+                </div>
+              ) : ytVideoId ? (
+                <iframe
+                  className="h-full w-full"
+                  src={`https://www.youtube.com/embed/${ytVideoId}`}
+                  title="Workout Video demonstration player"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : !imageError ? (
                 <img
                   src={imgSrc}
                   alt={selected.name}
                   onError={() => {
-                    // Try fallback to JPG image if GIF fails to load
                     if (imgSrc !== `/exercises/${selected.image}`) {
                       setImgSrc(`/exercises/${selected.image}`);
                     } else {
@@ -592,44 +727,44 @@ function ExercisePage() {
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="flex flex-col items-center gap-2 text-muted-foreground p-4">
-                  <ShieldAlert className="h-8 w-8 text-amber-500" />
-                  <p className="text-[11px] font-semibold text-center">
+                <div className="flex flex-col items-center gap-2 text-zinc-500 p-4">
+                  <ShieldAlert className="h-8 w-8 text-amber-500 animate-bounce" />
+                  <p className="text-[10px] font-bold text-center">
                     Video demonstration offline or not found
                   </p>
                 </div>
               )}
 
-              {/* Overlay Badges */}
-              <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-md text-[9px] font-bold text-white uppercase tracking-wider flex items-center gap-1">
-                <Play className="h-2.5 w-2.5 fill-white" />
-                <span>Video Demo</span>
+              {/* Video Overlay Badge */}
+              <div className="absolute top-3 left-3 bg-black/75 backdrop-blur-md px-2 py-0.5 rounded-md text-[9px] font-black text-white uppercase tracking-wider flex items-center gap-1">
+                <Play className="h-2.5 w-2.5 fill-volt text-volt" />
+                <span>{ytVideoId ? "YouTube Live Demo" : "Animation Demo"}</span>
               </div>
             </div>
 
             {/* Muscle Targeted Tags */}
-            <div className="grid grid-cols-3 gap-2 text-center mt-4">
-              <div className="rounded-xl border border-border bg-muted/30 py-2 px-1">
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
+            <div className="grid grid-cols-3 gap-2 text-center mt-4 text-white">
+              <div className="rounded-xl border border-zinc-850 bg-zinc-950/30 py-2 px-1">
+                <p className="text-[8px] uppercase tracking-wider text-zinc-500 font-bold">
                   Target Muscle
                 </p>
-                <p className="text-xs font-bold text-foreground capitalize mt-0.5 truncate">
+                <p className="text-xs font-black text-white capitalize mt-0.5 truncate">
                   {selected.target}
                 </p>
               </div>
-              <div className="rounded-xl border border-border bg-muted/30 py-2 px-1">
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
+              <div className="rounded-xl border border-zinc-850 bg-zinc-950/30 py-2 px-1">
+                <p className="text-[8px] uppercase tracking-wider text-zinc-500 font-bold">
                   Equipment
                 </p>
-                <p className="text-xs font-bold text-foreground capitalize mt-0.5 truncate">
+                <p className="text-xs font-black text-white capitalize mt-0.5 truncate">
                   {selected.equipment}
                 </p>
               </div>
-              <div className="rounded-xl border border-border bg-muted/30 py-2 px-1">
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
+              <div className="rounded-xl border border-zinc-850 bg-zinc-950/30 py-2 px-1">
+                <p className="text-[8px] uppercase tracking-wider text-zinc-500 font-bold">
                   Burn Rate
                 </p>
-                <p className="text-xs font-bold text-[#007000] mt-0.5 truncate">
+                <p className="text-xs font-black text-volt mt-0.5 truncate">
                   ~{getExerciseKcalPerMin(selected.category)}/min
                 </p>
               </div>
@@ -639,30 +774,30 @@ function ExercisePage() {
               {/* Audio Coach control & Instructions */}
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                    <Info className="h-4 w-4 text-[#007000]" />
+                  <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <Info className="h-4 w-4 text-volt" />
                     <span>Instruction Steps:</span>
                   </p>
                   <button
                     onClick={toggleAudioCoach}
-                    className={`flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full border transition duration-200 ${
+                    className={`flex items-center gap-1 text-[10px] font-black px-2.5 py-0.5 rounded-full border transition duration-200 cursor-pointer ${
                       isSpeaking
                         ? "bg-red-500/10 border-red-500/20 text-red-500"
-                        : "bg-[#007000]/10 border-[#007000]/20 text-[#007000]"
+                        : "bg-volt/10 border-volt/20 text-volt"
                     }`}
                   >
                     {isSpeaking ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
                     <span>{isSpeaking ? "Pause Coach" : "Audio Coach"}</span>
                   </button>
                 </div>
-                <div className="max-h-[120px] overflow-y-auto space-y-2 pr-1 border border-border/50 rounded-xl p-3 bg-muted/30">
+                <div className="max-h-[120px] overflow-y-auto space-y-2 pr-1 border border-zinc-800 rounded-xl p-3 bg-zinc-950/40">
                   {(selected.instruction_steps?.en || [selected.instructions.en]).map(
                     (step, idx) => (
                       <div
                         key={idx}
-                        className="flex gap-2 text-xs text-muted-foreground leading-relaxed"
+                        className="flex gap-2 text-xs text-zinc-400 leading-relaxed"
                       >
-                        <span className="font-bold text-[#007000] min-w-[15px]">{idx + 1}.</span>
+                        <span className="font-bold text-volt min-w-[15px]">{idx + 1}.</span>
                         <span>{step}</span>
                       </div>
                     ),
@@ -671,9 +806,9 @@ function ExercisePage() {
               </div>
 
               {/* Stopwatch & Timer Live Widget */}
-              <div className="rounded-2xl border border-border bg-card p-3 shadow-inner">
-                <div className="flex justify-between items-center mb-2 border-b border-border pb-2">
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground">
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-3.5 shadow-inner">
+                <div className="flex justify-between items-center mb-2 border-b border-zinc-800 pb-2">
+                  <span className="text-[9px] uppercase font-bold text-zinc-500">
                     Live Active Stopwatch
                   </span>
                   {timerRunning && (
@@ -683,25 +818,25 @@ function ExercisePage() {
 
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col">
-                    <span className="font-display text-2xl font-black text-foreground tracking-tight">
+                    <span className="font-display text-2xl font-black text-white tracking-tight">
                       {formatTime(timeElapsed)}
                     </span>
-                    <span className="text-[9px] text-muted-foreground">Elapsed workout time</span>
+                    <span className="text-[8px] text-zinc-500 font-bold uppercase mt-0.5">Elapsed workout time</span>
                   </div>
 
                   <div className="flex gap-2">
                     <button
                       onClick={() => setTimerRunning(!timerRunning)}
-                      className={`p-2.5 rounded-xl border transition active:scale-95 ${
+                      className={`p-2.5 rounded-xl border transition active:scale-95 cursor-pointer ${
                         timerRunning
                           ? "bg-amber-500/15 border-amber-500/20 text-amber-500"
-                          : "bg-[#007000] text-white border-[#007000]"
+                          : "bg-volt text-black border-volt"
                       }`}
                     >
                       {timerRunning ? (
                         <Pause className="h-4.5 w-4.5" />
                       ) : (
-                        <Play className="h-4.5 w-4.5 fill-white" />
+                        <Play className="h-4.5 w-4.5 fill-black" />
                       )}
                     </button>
                     <button
@@ -709,7 +844,7 @@ function ExercisePage() {
                         setTimerRunning(false);
                         setTimeElapsed(0);
                       }}
-                      className="p-2.5 rounded-xl border border-border hover:bg-muted text-muted-foreground transition active:scale-95"
+                      className="p-2.5 rounded-xl border border-zinc-800 hover:bg-zinc-900 text-zinc-400 transition active:scale-95 cursor-pointer"
                     >
                       <RotateCcw className="h-4.5 w-4.5" />
                     </button>
@@ -718,14 +853,14 @@ function ExercisePage() {
               </div>
 
               {/* Slider for logging */}
-              <div className="pt-2 border-t border-border/50">
+              <div className="pt-2 border-t border-zinc-850">
                 <div className="flex items-baseline justify-between mb-1.5">
-                  <span className="text-xs font-semibold text-muted-foreground">
+                  <span className="text-xs font-semibold text-zinc-400">
                     Duration Selector
                   </span>
-                  <span className="font-display text-base font-extrabold">
+                  <span className="font-display text-base font-extrabold text-white">
                     {mins}{" "}
-                    <span className="text-xs font-medium text-muted-foreground">
+                    <span className="text-xs font-medium text-zinc-500">
                       min · {Math.round(getExerciseKcalPerMin(selected.category) * mins)} kcal
                     </span>
                   </span>
@@ -737,7 +872,7 @@ function ExercisePage() {
                   step={5}
                   value={mins}
                   onChange={(e) => setMins(+e.target.value)}
-                  className="w-full accent-[#007000] h-1.5 bg-muted rounded-lg appearance-none cursor-pointer"
+                  className="w-full accent-volt h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
                 />
               </div>
             </div>
@@ -763,7 +898,7 @@ function ExercisePage() {
                 toast.success(`Successfully logged ${mins} min of ${selected.name}! 🏋️`);
                 setSelected(null);
               }}
-              className="w-full mt-4 rounded-2xl bg-gradient-hero py-3.5 font-display font-bold text-xs text-white shadow-glow active:scale-95 transition"
+              className="w-full mt-4 rounded-2xl bg-volt text-black py-3.5 font-display font-black text-xs shadow-glow active:scale-95 transition uppercase tracking-wider cursor-pointer"
             >
               Log Workout Progress
             </button>

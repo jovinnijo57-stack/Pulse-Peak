@@ -32,7 +32,7 @@ function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     name: profile.name || "User",
-    phone: "",
+    phone: profile.phone || "",
     age: profile.age || 28,
     heightCm: profile.heightCm || 178,
     weightKg: profile.weightKg || 77,
@@ -116,6 +116,7 @@ function Profile() {
       const updatedProfile = {
         ...profile,
         name: editForm.name,
+        phone: editForm.phone,
         age: Number(editForm.age),
         heightCm: Number(editForm.heightCm),
         weightKg: Number(editForm.weightKg),

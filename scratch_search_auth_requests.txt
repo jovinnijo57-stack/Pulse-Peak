@@ -1,0 +1,8 @@
+[Folder: 883ebf44-b061-4cc4-9b85-12359a30ccdd] [Step: 5829]
+<USER_REQUEST>
+after login with email and google and register with  email it is not working according to my needs that i said in the above 
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-26T08:24:10+05:30.
+</ADDITIONAL_METADATA>
+==================================================

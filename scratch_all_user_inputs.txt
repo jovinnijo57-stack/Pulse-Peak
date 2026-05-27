@@ -1,0 +1,575 @@
+[Step 4331] <USER_REQUEST>
+continue and do according correctly dont make mistakes  and push everything which has done in local host to cloud fare and github
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T08:25:05+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 4234] <USER_REQUEST>
+when clicking Ai Gym Exercises in url link the changed things are  not coming link is https://pulse-peak.pulse-peak.workers.dev  i had added project in cloud fare can you push everything to cloud fair my website? and remove the above photo options from chef corner page and in chef corner page remove Spotlight Selection and replace the text with Trending Recipes and remove  Roll View and in each recepies remove  add ingredients to shopping  cart  and remove the second photo option from  meal planner and make according to third photo in meal planner  and remove  fourth photo option  from meal planner page and in meal planner page calender is not working
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T08:40:29+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 4422] <USER_REQUEST>
+ only remove chef corner option from home dashboard only
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T08:57:04+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 4467] <USER_REQUEST>
+ in chef corner page  moving recepies going when we click only the recepie name should be shown and it should stop when clicking or placing  mouse and in moving recepies when clicking dont show the recepie details and in chef corner page remove the text Chef's Corner
+Plan delicious, macro-balanced meals and place the banner photo in square which will be perfect in mobile view and in chef corner when clicking each recepies the information is showing also add the recepie photo like recepies name and breakfast ,lunch etc place the the two text on the photo down position
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T09:01:50+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 4537] <USER_REQUEST>
+in profile section when we edit height and weight it needs to change in above photo place
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T09:08:42+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 4603] <USER_REQUEST>
+in progress page and in home dashboard Calories in vs out is working properly and  undo Top Banner Presentation:
+
+Re-styled the pizza banner wrapper to be a perfect square (aspect-square w-full rounded-3xl) with an object-cover cover image, which fits perfectly on mobile viewports.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T09:13:40+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 4675] <USER_REQUEST>
+in meal planner remove all to cart option and  undo Overlaid Detail Modal:
+
+Reordered the recipe detail modal contents to place the hero photo at the very top.
+Overlaid the category pill and the recipe name directly on the bottom (down) position of the image with a subtle dark gradient overlay.
+Moved the exit (X) button to the top-right corner of the image as a modern translucent circle button.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T09:43:25+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 4731] <USER_REQUEST>
+in meal planner when clicking pick date a date selecting option needs to come and when a date is selected in weekly schedule the date should should show and when clicking  each recepies a page is coming  add recpies photo in it and from  moving trending recepies remove the recepie name on  each recepie  and in trending recepie remove Resume Scroll option
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T09:51:23+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 4833] <USER_REQUEST>
+in chef corner when we create custom recipie it should be saved in the user chef corner only dont show in another persons chef corner page and in custom recipie  instead  of image url add an option to  take from gallery  and in custom recepie instead of  save recepie to database make it as Save Recipe and undo Trending Recipes Cleanup: Removed the Resume Scroll button and the overlay recipe name text cards. The marquee now showcases a clean, auto-scrolling row of trending recipe images that pauses on hover.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T10:02:17+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 4848] <USER_REQUEST>
+continue and do evrything
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T10:19:16+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 4893] <USER_REQUEST>
+do it
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T10:23:25+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 4986] <USER_REQUEST>
+ when clicking  each recipes a page is coming about the detaild   add recpies photo in it and in chef corner  page  place the calender option in each recepies to right down  and in chef corner page  in search bar place voice search  and add filter near search bar and  look above first photo the recepies photo is not showing in each recepies and check second photo trending recepies  moving is not correctly fitted according to mobile view  and in trending recepies remove  the text Resume Scroll only and in above second under each recepie photo name is coming remove it
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T10:40:15+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 5116] <USER_REQUEST>
+in meal planner page what features can we add extra for making it useful and add the below recepies  in chef corner page                                                                                                                          🍳 Breakfast Recipes
+🥣 IDLI
+Products
+
+Rice, Urad dal, Salt, Water
+
+Preparation
+
+Take 2 cups rice and wash well
+
+Take 1 cup urad dal and wash separately
+
+Soak rice in 3 cups water and dal in 2 cups water for 6 hours
+
+Grind dal with 1/2 cup water → smooth
+
+Grind rice with 3/4 cup water → coarse
+
+Mix both + add 1 tsp salt
+
+Ferment for 8–10 hours
+
+Pour 80 ml batter into molds
+
+Steam with 2 cups water for 12 min
+
+🥞 DOSA
+Products
+
+Rice, Urad dal, Fenugreek seeds, Salt, Oil
+
+Preparation
+
+Soak 3 cups rice, 1 cup urad dal, and 1 tsp fenugreek for 5 hours
+
+Grind to a very smooth, pourable batter
+
+Add 1 tsp salt and ferment for 8 hours
+
+Heat a pan and grease with 1 tsp oil
+
+Spread 1 ladle of batter in a thin circle
+
+Cook for 2 min until edges are crispy
+
+🥘 APPAM
+Products
+
+Raw rice, Coconut, Yeast, Sugar, Salt
+
+Preparation
+
+Soak 2 cups raw rice for 4 hours
+
+Grind rice with 1 cup grated coconut and 1/2 cup cooked rice
+
+Add 1/2 tsp yeast and 1 tbsp sugar
+
+Ferment for 6–8 hours until bubbly
+
+Pour into an Appam pan and swirl to coat edges
+
+Steam covered for 3 min
+
+🍚 PUTTU
+Products
+
+Rice flour, Grated coconut, Salt, Water
+
+Preparation
+
+Mix 2 cups rice flour with 1/2 tsp salt
+
+Sprinkle 3/4 cup water gradually while mixing
+
+Texture should be moist but crumbly (no lumps)
+
+Layer 2 tbsp coconut then 1 cup flour mixture in puttu maker
+
+Steam for 6–8 min until steam escapes top
+
+🥣 UPMA
+Products
+
+Rava (Semolina), Onion, Mustard seeds, Ghee, Veggies
+
+Preparation
+
+Roast 1 cup rava until fragrant; set aside
+
+Sauté 1 tsp mustard seeds, 1 chopped onion, and chilies in 2 tbsp ghee
+
+Add 2.5 cups water and bring to a boil
+
+Slowly pour in rava while stirring constantly
+
+Cover and cook on low heat for 5 min
+
+🍚 PONGAL
+Products
+
+Raw rice, Moong dal, Black pepper, Cum
+<truncated 15396 bytes>
+c and 1 tsp salt
+
+Cover and cook on low heat for 15 min (no water needed)
+
+Garnish with fresh cilantro before serving
+
+🥣 CHANA MASALA
+Products
+
+Chickpeas (Chana), Onion, Tomato, Chana masala powder
+
+Preparation
+
+Soak 1 cup chickpeas overnight and pressure cook until soft
+
+Sauté 1 large onion and 2 tomatoes into a soft paste
+
+Add 2 tsp chana masala powder and the cooked beans
+
+Simmer with 1/2 cup water for 10 min
+
+Mash a few chickpeas to thicken the gravy
+
+🥣 RAJMA
+Products
+
+Kidney beans (Rajma), Onion-Tomato puree, Ginger, Ghee
+
+Preparation
+
+Soak 1 cup rajma for 8 hours and pressure cook well
+
+Sauté puree with ginger in 1 tbsp ghee until oil separates
+
+Add cooked beans and 1 tsp salt
+
+Simmer for 15 min on low heat until creamy
+
+Serve hot with steamed Basmati rice
+
+🥘 VEG KURMA
+Products
+
+Mixed veggies, Coconut, Cashews, Poppy seeds, Spices
+
+Preparation
+
+Grind 1/2 cup coconut and 5 cashews into a smooth paste
+
+Boil 2 cups mixed veggies (carrots, beans, peas)
+
+Sauté spices and add the coconut paste + veggies
+
+Simmer for 5 min until the sauce thickens
+
+Add a splash of water for desired consistency
+
+🍄 MUSHROOM CURRY
+Products
+
+Mushrooms, Onion, Tomato, Garlic, Cream
+
+Preparation
+
+Sauté 250g sliced mushrooms until they release water
+
+Add 1 chopped onion and 1 tsp garlic paste
+
+Stir in 1/2 cup tomato puree and spices
+
+Cook for 8 min until mushrooms are tender
+
+Finish with 2 tbsp heavy cream for a rich texture
+
+🥘 BHINDI FRY
+Products
+
+Okra (Bhindi), Cumin, Turmeric, Amchur (Mango powder)
+
+Preparation
+
+Wash and dry 250g okra completely; slice into rounds
+
+Heat 2 tbsp oil and sauté okra on medium-high
+
+Add 1/2 tsp turmeric and 1 tsp salt
+
+Fry for 10 min without a lid to avoid sliminess
+
+Toss with 1/2 tsp amchur powder for tanginess                                                                                                                                                                      
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T10:55:39+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 5395] <USER_REQUEST>
+ do it 
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T11:22:54+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 5578] <USER_REQUEST>
+add the below recepies  in chef corner                                                                                                                        🍛 Lunch Recipes
+🥘 VEGETABLE CURRY
+Products
+
+Mixed vegetables, Onion, Tomato, Coconut milk, Spices
+
+Preparation
+
+Sauté 1 onion and 1 chopped tomato until soft
+
+Add 2 cups mixed vegetables (potatoes, carrots, peas)
+
+Stir in 1 tsp turmeric and 1 tsp chili powder
+
+Pour in 1 cup coconut milk and 1/2 cup water
+
+Simmer for 15 min until vegetables are tender
+
+🐟 FISH CURRY
+Products
+
+Fish, Tamarind, Coconut milk, Turmeric, Chili powder
+
+Preparation
+
+Soak small ball of tamarind in 1/2 cup warm water
+
+Heat oil and sauté ginger, garlic, and green chilies
+
+Add tamarind water, 1 tsp turmeric, and 2 tsp chili powder
+
+Gently place 500g fish pieces into the gravy
+
+Cook for 10 min and finish with 1/4 cup coconut milk
+
+🥩 BEEF FRY
+Products
+
+Beef, Onions, Coconut slices, Ginger, Garam masala
+
+Preparation
+
+Pressure cook 500g beef with ginger and salt for 20 min
+
+In a pan, sauté 2 sliced onions and 1/4 cup coconut slices
+
+Add cooked beef and 2 tsp garam masala
+
+Stir-fry on medium-high heat until the beef turns dark brown
+
+Garnish with plenty of curry leaves
+
+🍚 FRIED RICE
+Products
+
+Cooked rice, Soy sauce, Scallions, Eggs/Veggies, Oil
+
+Preparation
+
+Heat 2 tbsp oil in a wok on high heat
+
+Scramble 2 eggs or sauté 1 cup chopped veggies
+
+Add 3 cups cold cooked rice
+
+Pour 2 tbsp soy sauce and 1 tsp pepper
+
+Toss for 3 min and top with 1/4 cup scallions
+
+🍋 LEMON RICE
+Products
+
+Cooked rice, Lemon, Peanuts, Turmeric, Curry leaves
+
+Preparation
+
+Heat 1 tbsp oil; fry 2 tbsp peanuts until crunchy
+
+Add 1 tsp mustard seeds and curry leaves
+
+Add 1/2 tsp turmeric and turn off the heat
+
+Mix in 3 cups cooked rice and 1 tsp salt
+
+Squeeze the juice of 1 lemon over and mix well
+
+🍱 Thali Meals
+Products
+
+Rice, Dal, Veg side, Curd, Pickle, Papad, Dessert
+
+Preparation
+
+Prepare 1 cup steamed rice as the center base
+
+Arrange 4 small bowls around the rice
+
+Fill bowls with 
+<truncated 23590 bytes>
+ds, Oil
+
+Preparation
+
+Thinly slice 1 cup mixed vegetables of your choice and place them in a bowl
+
+Add 1 cup besan, 1/2 tsp carom seeds (ajwain), chili powder, and salt
+
+Sprinkle 1/4 cup water gently to make a thick, tight coating over the veggies
+
+Heat oil in a deep frying pan on medium-high heat
+
+Drop small, webbed clusters of the mixture and fry for 5 min until crisp
+
+🍞 BREAD AMLEET (Street Style)
+Products
+
+Eggs, Bread slices, Onion, Green chili, Butter
+
+Preparation
+
+Whisk 2 eggs with 2 tbsp chopped onions, green chili, and a pinch of salt
+
+Melt 1 tbsp butter on a wide flat pan and pour the egg mixture evenly
+
+Immediately place 2 slices of bread side-by-side right on top of the wet egg
+
+Flip the entire omelette along with the bread after 1 min of cooking
+
+Fold the overhanging edges of the egg over the bread, toast until golden, and serve
+
+🍹 Sweets & Evening Drinks
+🥛 KULFI (Traditional Ice Cream)
+Products
+
+Full-fat milk, Condensed milk, Cardamom powder, Pistachios
+
+Preparation
+
+Boil 4 cups full-fat milk in a wide pan until it reduces to half its volume
+
+Stir in 1/2 cup condensed milk and simmer on low heat for 5 min
+
+Add 1/4 tsp cardamom powder and 2 tbsp crushed pistachios; let it cool completely
+
+Pour the cooled thick mixture into traditional kulfi molds or small paper cups
+
+Insert a wooden stick and freeze for at least 8 hours until completely set
+
+🍮 JALEBI (Instant Style)
+Products
+
+All-purpose flour (Maida), Yogurt, Baking powder, Sugar, Water
+
+Preparation
+
+Mix 1 cup flour, 2 tbsp yogurt, 1/2 tsp baking powder, and water into a smooth, thick batter
+
+Boil 1 cup sugar with 1/2 cup water for 5 min to make a sticky syrup; keep warm
+
+Pour the batter into a squeeze bottle or a zip-lock bag with a small corner cut off
+
+Squeeze out spiral shapes directly into medium-hot oil and fry until crisp on both sides
+
+Drain the hot jalebis and immediately drop them into the warm sugar syrup for 2 min
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T11:33:15+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 5612] <USER_REQUEST>
+give me the database for adding in supabase for working it in cloud fair url and todays changes are not uploaded in supabase database 
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T11:39:43+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 5646] <USER_REQUEST>
+today i had made many changes and the database i s not added to supabase for connecting my cloud fare  link and  i had uploaded into @[c:\Users\User\OneDrive\Desktop\project\fit-ai-life-main\supabase\insert_recipes.sql] into supabase
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T12:15:10+05:30.
+
+The user has mentioned some items in the form @[ITEM]. Here is extra information about the items that were mentioned by the user, in the order that they appear:
+
+@[c:\Users\User\OneDrive\Desktop\project\fit-ai-life-main\supabase\insert_recipes.sql] is a [File]:
+c:\Users\User\OneDrive\Desktop\project\fit-ai-life-main\supabase\insert_recipes.sql
+</ADDITIONAL_METADATA>
+-------------------
+[Step 5655] <USER_REQUEST>
+if i do step 3  will it  keep secret? and how can i change the link name in cloud fare
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T14:08:36+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 5658] <USER_REQUEST>
+is the below options done  is anything add to supabase                                                                             Recipe Detail Photo Fix
+
+Modified the image hero container inside the details modal in 
+recipes.tsx
+ to prevent layout collapse.
+Added min-h-[180px] to the container and styled the image with absolute inset-0 h-full w-full object-cover along with a robust default fallback image source recipe.image || fallbackUrl.
+Calendar Option Repositioning
+
+Relocated the calendar scheduling button from the top-right (top-2.5 right-2.5) to the bottom-right (bottom-2.5 right-2.5) of the recipe image container on all recipe cards in Chef's Corner.
+Voice Search & Filter Bar Integration
+
+Nested the Voice Search Mic button inside the right side of the search input field for a modern, compact design.
+Added an elegant filter button (SlidersHorizontal) next to the search input.
+Created a slide-down Advanced Filters drawer allowing users to filter by Max Calories (≤ 300, 400, 500 kcal) and Max Prep Time (≤ 15, 30, 45 min).
+Updated the filter query function in 
+recipes.tsx
+ to dynamically filter cards by both time and calorie parameters.
+Trending Recipes Marquee Cleanup & Fitting
+
+Removed the "Resume Scroll" button and text.
+Removed the default recipe name card overlays from each photo in the marquee.
+Set up automated list repeating to guarantee a minimum length of 12 items. This ensures that the marquee always spans the full viewport width on mobile screens and loops infinitely without empty space or offsets.
+Linked each marquee item click to open the detailed recipe modal
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T14:14:32+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 5660] <USER_REQUEST>
+but it is not there in cloud fare link https://pulse-peak-ai.pulse-peak.workers.dev
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T14:16:50+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 5668] <USER_REQUEST>
+git add .
+git commit -m "feat: sync 66 new recipes and apply all UI fixes"
+git push
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T14:21:46+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 5679] <USER_REQUEST>
+git add .
+git commit -m "feat: sync 66 new recipes and apply all UI fixes"
+git push
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T14:26:23+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 5685] <USER_REQUEST>
+?
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-20T14:28:57+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 5697] <USER_REQUEST>
+continuemaking all working i say in the cloud fare
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-26T08:11:14+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 5819] <USER_REQUEST>
+is everything working according 
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-26T08:19:19+05:30.
+</ADDITIONAL_METADATA>
+-------------------
+[Step 5829] <USER_REQUEST>
+after login with email and google and register with  email it is not working according to my needs that i said in the above 
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-26T08:24:10+05:30.
+</ADDITIONAL_METADATA>
+-------------------
