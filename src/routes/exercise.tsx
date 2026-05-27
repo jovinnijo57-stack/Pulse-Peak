@@ -31,11 +31,18 @@ import {
   Smile,
   Home as HomeIcon,
   User as UserIcon,
+  CloudSun,
+  MapPin,
+  Flag,
+  Navigation,
+  Square,
+  TrendingDown,
+  Flame,
 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/exercise")({
-  head: () => ({ meta: [{ title: "Ai Gym Exercises & Library — PulsePeak" }] }),
+  head: () => ({ meta: [{ title: "GPS Track, Workouts & Gym — PulsePeak" }] }),
   component: ExercisePage,
 });
 
@@ -78,7 +85,7 @@ function ExerciseCard({ ex, onClick, getIcon }: ExerciseCardProps) {
       onMouseLeave={() => setIsHovered(false)}
       className="group relative bg-zinc-900/60 border border-zinc-805 hover:border-volt rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 shadow-md hover:-translate-y-1 hover:shadow-volt/10 flex flex-col h-full"
     >
-      <div className="relative aspect-[3/4] overflow-hidden bg-zinc-950/80">
+      <div className="relative aspect-[3/4] overflow-hidden bg-zinc-955">
         <img
           src={thumbUrl}
           alt={ex.name}
@@ -95,11 +102,11 @@ function ExerciseCard({ ex, onClick, getIcon }: ExerciseCardProps) {
           />
         )}
 
-        <div className="absolute top-2.5 left-2.5 bg-black/70 backdrop-blur-md px-2.5 py-0.5 rounded-md text-[8px] font-black text-zinc-400 uppercase tracking-widest border border-zinc-800">
+        <div className="absolute top-2.5 left-2.5 bg-black/70 backdrop-blur-md px-2.5 py-0.5 rounded-md text-[8px] font-black text-zinc-400 uppercase tracking-widest border border-zinc-805">
           {ex.category}
         </div>
 
-        <div className="absolute bottom-2.5 right-2.5 bg-zinc-900/85 backdrop-blur-md h-7 w-7 rounded-lg flex items-center justify-center text-sm shadow-md border border-zinc-800">
+        <div className="absolute bottom-2.5 right-2.5 bg-zinc-900/85 backdrop-blur-md h-7 w-7 rounded-lg flex items-center justify-center text-sm shadow-md border border-zinc-805">
           {getIcon(ex.category, ex.name)}
         </div>
       </div>
@@ -124,14 +131,17 @@ function ExerciseCard({ ex, onClick, getIcon }: ExerciseCardProps) {
 
 function ExercisePage() {
   const { state, addExercise } = useStore();
+  const searchParams = Route.useSearch<{ tab?: string }>() as any;
 
-  // Screen Manager State: 'welcome' | 'home' | 'workouts' | 'schedule'
-  const [activeTab, setActiveTab] = useState<"welcome" | "home" | "workouts" | "schedule">("welcome");
+  // Visual Multi-Screen Tab States: 
+  // 'welcome' | 'home' | 'workouts' | 'schedule' | 'track_welcome' | 'track_dashboard' | 'track_recording'
+  const initialTab = searchParams?.tab === "tracker" ? "track_dashboard" : "welcome";
+  const [activeTab, setActiveTab] = useState<"welcome" | "home" | "workouts" | "schedule" | "track_welcome" | "track_dashboard" | "track_recording">(initialTab);
 
-  // Core Workout toggle in Workouts Tab: 'session' | 'library'
+  // Active workout display (Xander core vs 1,324 exercises library)
   const [workoutsView, setWorkoutsView] = useState<"session" | "library">("session");
 
-  // Exercise library states
+  // Core exercise list query states
   const [allExercises, setAllExercises] = useState<ExerciseItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -140,47 +150,66 @@ function ExercisePage() {
   const [selectedTarget, setSelectedTarget] = useState("All");
   const [visibleCount, setVisibleCount] = useState(12);
 
-  // Active filters drawer
+  // Advanced filters drawer
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
 
-  // Voice Search states
+  // Voice recognition search state
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
 
-  // Selected workout modal
+  // Exercise Detail popups
   const [selected, setSelected] = useState<ExerciseItem | null>(null);
   const [mediaTab, setMediaTab] = useState<"youtube" | "gif">("youtube");
   const [mins, setMins] = useState(30);
   const [imgSrc, setImgSrc] = useState("");
   const [imageError, setImageError] = useState(false);
 
-  // Speech Synthesizer states
+  // Speech Synthesizer variables
   const [isSpeaking, setIsSpeaking] = useState(false);
   const synthRef = useRef<SpeechSynthesis | null>(null);
 
-  // Timer states
+  // Stopwatch timer states
   const [timerRunning, setTimerRunning] = useState(false);
   const [timeElapsed, setTimeElapsed] = useState(0);
   const timerIntervalRef = useRef<any>(null);
 
-  // Static target list items matching Mockup Photo
+  // ==============================================
+  // Devon Lane Activity Route Tracker States
+  // ==============================================
+  const [trackingType, setTrackingType] = useState<"Running" | "Walking" | "Cycling">("Running");
+  const [trackingActive, setTrackingActive] = useState(false);
+  const [trackingTime, setTrackingTime] = useState(0); // in seconds
+  const [trackingDistance, setTrackingDistance] = useState(0.0); // in Km
+  const [trackingCalories, setTrackingCalories] = useState(0); // Cal
+  const [trackingLaps, setTrackingLaps] = useState<{ id: number; split: string; distance: string; cal: number }[]>([]);
+  const [completedTracks, setCompletedTracks] = useState([
+    { type: "Walking", address: "6 Holy Cross Circle", dist: 10, time: "52:14", cal: 245 },
+    { type: "Running", address: "719 Washington Alley", dist: 6, time: "32:55", cal: 652 },
+    { type: "Cycling", address: "6 Golf Course Alley", dist: 17, time: "1:04:12", cal: 480 },
+  ]);
+
+  const trackingIntervalRef = useRef<any>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [mapCoordinates, setMapCoordinates] = useState<{ x: number; y: number }[]>([]);
+
+  // Weekly Gym Schedule Targets
   const scheduleTargets = [
     {
-      id: "0032", // Barbell Deadlift
+      id: "0032",
       title: "Deadlift",
       time: "30 Minutes",
       sets: "2 sets x 2 reps",
       img: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=100&auto=format&fit=crop&q=80",
     },
     {
-      id: "0025", // Barbell Bench Press (mocked as rows)
+      id: "0025",
       title: "Barbell Rows",
       time: "15 Minutes",
       sets: "3 sets x 10 reps",
       img: "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=100&auto=format&fit=crop&q=80",
     },
     {
-      id: "0294", // Dumbbell Biceps Curl
+      id: "0294",
       title: "Bicep Curls",
       time: "45 Minutes",
       sets: "3 sets x 12 reps",
@@ -188,7 +217,7 @@ function ExercisePage() {
     },
   ];
 
-  // Checklist items
+  // Week checklist
   const [checklist, setChecklist] = useState([
     { id: 1, text: "55 Minutes Legs", checked: true },
     { id: 2, text: "30 Minutes Cardio", checked: false },
@@ -225,7 +254,7 @@ function ExercisePage() {
     "cardiovascular system",
   ];
 
-  // Initialize Audio & Speech recognition APIs
+  // Initialize Speech recognition and synthesizer
   useEffect(() => {
     if (typeof window !== "undefined") {
       synthRef.current = window.speechSynthesis;
@@ -245,6 +274,7 @@ function ExercisePage() {
           const transcript = e.results[0][0].transcript;
           setSearchQuery(transcript);
           setWorkoutsView("library");
+          setActiveTab("workouts");
           setVisibleCount(12);
           toast.success(`Voice search: "${transcript}"`);
         };
@@ -253,7 +283,7 @@ function ExercisePage() {
     }
   }, []);
 
-  // Fetch exercises from public folder
+  // Fetch exercise data
   useEffect(() => {
     fetch("/exercises/data/exercises.json")
       .then((res) => {
@@ -265,8 +295,7 @@ function ExercisePage() {
         setLoading(false);
       })
       .catch((err) => {
-        console.error("Failed to load local exercise dataset, loading fallbacks.", err);
-        // Clean high quality fallbacks
+        console.error("Failed to load local exercises library dataset, loading high fallbacks.", err);
         setAllExercises([
           {
             id: "0001",
@@ -363,7 +392,7 @@ function ExercisePage() {
   const [ytVideoId, setYtVideoId] = useState<string | null>(null);
   const [loadingYt, setLoadingYt] = useState(false);
 
-  // Set modal details & dynamic YouTube request
+  // Set modal details & youtube search pipeline
   useEffect(() => {
     if (selected) {
       setImgSrc(`/exercises/${selected.gif_url}`);
@@ -390,7 +419,7 @@ function ExercisePage() {
             }
           })
           .catch((err) => {
-            console.error("YouTube tutorial search failed:", err);
+            console.error("YouTube search api error inside exercises detail modal:", err);
             setMediaTab("gif");
           })
           .finally(() => setLoadingYt(false));
@@ -409,11 +438,12 @@ function ExercisePage() {
   useEffect(() => {
     return () => {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      if (trackingIntervalRef.current) clearInterval(trackingIntervalRef.current);
       if (synthRef.current) synthRef.current.cancel();
     };
   }, []);
 
-  // Timer interval loops
+  // Standard Stopwatches interval ticking loops
   useEffect(() => {
     if (timerRunning) {
       timerIntervalRef.current = setInterval(() => {
@@ -437,6 +467,129 @@ function ExercisePage() {
     };
   }, [timerRunning]);
 
+  // ==============================================
+  // LIVE GPS TRACKING SIMULATOR RUNNING EFFECTS
+  // ==============================================
+  useEffect(() => {
+    if (trackingActive) {
+      // Rates based on activity type (Burn/sec & Dist/sec)
+      const distRate = trackingType === "Running" ? 0.0035 : trackingType === "Cycling" ? 0.0062 : 0.0018;
+      const calRate = trackingType === "Running" ? 0.32 : trackingType === "Cycling" ? 0.22 : 0.14;
+
+      trackingIntervalRef.current = setInterval(() => {
+        setTrackingTime((t) => t + 1);
+        setTrackingDistance((d) => parseFloat((d + distRate).toFixed(4)));
+        setTrackingCalories((c) => Math.round(c + calRate));
+
+        // Append real-time vector map offsets
+        setMapCoordinates((prev) => {
+          const last = prev[prev.length - 1] || { x: 50, y: 350 };
+          const angle = Math.random() * 0.4 - 0.2; // slight curves
+          let dx = Math.sin(angle) * 8;
+          let dy = -Math.cos(angle) * 8; // move upwards mostly
+
+          // bound maps
+          let newX = Math.max(20, Math.min(380, last.x + dx));
+          let newY = Math.max(20, Math.min(380, last.y + dy));
+
+          return [...prev, { x: newX, y: newY }];
+        });
+      }, 1000);
+    } else {
+      if (trackingIntervalRef.current) clearInterval(trackingIntervalRef.current);
+    }
+
+    return () => {
+      if (trackingIntervalRef.current) clearInterval(trackingIntervalRef.current);
+    };
+  }, [trackingActive, trackingType]);
+
+  // Draw simulated neon coordinate routes map viewport on Canvas
+  useEffect(() => {
+    if (activeTab === "track_recording" && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        // Clear Grid
+        ctx.fillStyle = "#0c1524"; // dark slate blue map grid
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw Map Grid blocks to simulate chesters streets
+        ctx.strokeStyle = "#1b2c45";
+        ctx.lineWidth = 1.5;
+        for (let i = 0; i < canvas.width; i += 40) {
+          ctx.beginPath();
+          ctx.moveTo(i, 0);
+          ctx.lineTo(i, canvas.height);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(0, i);
+          ctx.lineTo(canvas.width, i);
+          ctx.stroke();
+        }
+
+        // Draw Simulated road bounds
+        ctx.fillStyle = "#122033";
+        ctx.beginPath();
+        // Blocks representation
+        ctx.roundRect(30, 30, 80, 80, 12);
+        ctx.roundRect(140, 30, 110, 80, 12);
+        ctx.roundRect(280, 30, 90, 80, 12);
+        ctx.roundRect(30, 140, 160, 120, 12);
+        ctx.roundRect(210, 140, 160, 120, 12);
+        ctx.roundRect(30, 290, 160, 80, 12);
+        ctx.roundRect(210, 290, 160, 80, 12);
+        ctx.fill();
+
+        // Draw Neon-Blue coordinate path
+        if (mapCoordinates.length > 0) {
+          ctx.strokeStyle = "#38bdf8"; // bright neon blue tracking
+          ctx.shadowColor = "#0284c7";
+          ctx.shadowBlur = 8;
+          ctx.lineWidth = 6;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+
+          ctx.beginPath();
+          ctx.moveTo(mapCoordinates[0].x, mapCoordinates[0].y);
+          for (let cIdx = 1; cIdx < mapCoordinates.length; cIdx++) {
+            ctx.lineTo(mapCoordinates[cIdx].x, mapCoordinates[cIdx].y);
+          }
+          ctx.stroke();
+
+          // Reset shadows
+          ctx.shadowBlur = 0;
+
+          // Draw Starting Pin
+          ctx.fillStyle = "#f59e0b"; // Orange flag starting point
+          ctx.beginPath();
+          ctx.arc(mapCoordinates[0].x, mapCoordinates[0].y, 5, 0, 2 * Math.PI);
+          ctx.fill();
+
+          // Draw active navigator location dot
+          const lastLoc = mapCoordinates[mapCoordinates.length - 1];
+          ctx.fillStyle = "#ffffff";
+          ctx.strokeStyle = "#0284c7";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(lastLoc.x, lastLoc.y, 8, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.stroke();
+
+          // Draw pulsing outer navigation range
+          if (trackingActive) {
+            ctx.strokeStyle = "rgba(56, 189, 248, 0.4)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(lastLoc.x, lastLoc.y, 16 + Math.sin(Date.now() / 200) * 4, 0, 2 * Math.PI);
+            ctx.stroke();
+          }
+        }
+      }
+    }
+  }, [activeTab, mapCoordinates, trackingActive]);
+
   const toggleAudioCoach = () => {
     if (!synthRef.current || !selected) {
       toast.error("Audio coach is not supported on this browser.");
@@ -449,7 +602,7 @@ function ExercisePage() {
       toast.info("Audio coach paused.");
     } else {
       const steps = selected.instruction_steps?.en || [selected.instructions.en];
-      const textToSpeak = `Starting coach for ${selected.name}. ${steps.join(". ")}. Maintain strict spinal posture.`;
+      const textToSpeak = `Starting coach for ${selected.name}. ${steps.join(". ")}. Let's perform.`;
       const utterance = new SpeechSynthesisUtterance(textToSpeak);
       utterance.rate = 0.95;
       utterance.onend = () => setIsSpeaking(false);
@@ -473,12 +626,90 @@ function ExercisePage() {
     }
   };
 
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60)
-      .toString()
-      .padStart(2, "0");
-    const s = (secs % 60).toString().padStart(2, "0");
-    return `${m}:${s}`;
+  const captureLapSplit = () => {
+    if (trackingTime <= 0) return;
+    const splitFormat = formatTime(trackingTime);
+    const newLap = {
+      id: trackingLaps.length + 1,
+      split: splitFormat,
+      distance: trackingDistance.toFixed(2),
+      cal: trackingCalories,
+    };
+    setTrackingLaps((prev) => [newLap, ...prev]);
+    toast.info(`Lap ${newLap.id} split logged: ${newLap.distance} Km in ${newLap.split}! 🏁`);
+  };
+
+  const stopAndLogTrack = () => {
+    if (trackingTime < 5) {
+      toast.error("Track duration too short to log successfully!");
+      setTrackingActive(false);
+      setTrackingTime(0);
+      setTrackingDistance(0.0);
+      setTrackingCalories(0);
+      setTrackingLaps([]);
+      setActiveTab("track_dashboard");
+      return;
+    }
+
+    const burnRate = trackingCalories / (trackingTime / 60);
+
+    // Call store addExercise to dynamically log fitness updates to calories burned metrics!
+    addExercise(
+      {
+        id: crypto.randomUUID(),
+        name: `${trackingType} GPS Outdoor Track`,
+        kcalPerMin: parseFloat(burnRate.toFixed(2)),
+        icon: trackingType === "Running" ? "🏃" : trackingType === "Cycling" ? "🚴" : "🚶",
+        category: "Cardio",
+        target: "cardiovascular system",
+        body_part: "cardio",
+        equipment: "body weight",
+        instructions: { en: `Outdoor simulated GPS path route. Logged ${trackingDistance.toFixed(2)} Km.` },
+      } as any,
+      Math.ceil(trackingTime / 60)
+    );
+
+    // Add locally to activities history
+    setCompletedTracks((prev) => [
+      {
+        type: trackingType,
+        address: "710 1st St. Easton, PA",
+        dist: parseFloat(trackingDistance.toFixed(2)),
+        time: formatTime(trackingTime),
+        cal: trackingCalories,
+      },
+      ...prev,
+    ]);
+
+    toast.success(`Successfully logged ${trackingDistance.toFixed(2)} Km ${trackingType} (${trackingCalories} kcal)! 🏆`);
+    
+    // Reset tracker states
+    setTrackingActive(false);
+    setTrackingTime(0);
+    setTrackingDistance(0.0);
+    setTrackingCalories(0);
+    setTrackingLaps([]);
+    setActiveTab("track_dashboard");
+  };
+
+  const launchActivityTracker = (type: "Running" | "Walking" | "Cycling") => {
+    setTrackingType(type);
+    setTrackingTime(0);
+    setTrackingDistance(0.0);
+    setTrackingCalories(0);
+    setTrackingLaps([]);
+
+    // Populate initial coordinate positions inside canvas
+    setMapCoordinates([
+      { x: 50, y: 350 },
+      { x: 50, y: 300 },
+      { x: 120, y: 300 },
+      { x: 120, y: 250 },
+    ]);
+
+    setActiveTab("track_recording");
+    setTrackingActive(true);
+    toast.success(`Simulating your GPS ${type} track recorder... Press Orange Flag for laps! 🗺️`);
   };
 
   const getExerciseIcon = (category: string, name: string): string => {
@@ -512,7 +743,7 @@ function ExercisePage() {
     return 5;
   };
 
-  // Workout details mapping matching visual styling
+  // Categories mapping matching Volt dark premium styling
   const categoriesList = [
     {
       id: "strength",
@@ -564,7 +795,7 @@ function ExercisePage() {
     },
   ];
 
-  // Dynamic filter query on 1,324 exercise dataset
+  // Filtering calculations over all 1,324 exercises
   const filteredExercises = allExercises.filter((ex) => {
     const matchesSearch =
       ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -587,62 +818,9 @@ function ExercisePage() {
     return matchesSearch && matchesCategory && matchesEquipment && matchesTarget;
   });
 
-  const launchTargetExercise = (exerciseId: string) => {
-    const found = allExercises.find((e) => e.id === exerciseId);
-    if (found) {
-      setSelected(found);
-      toast.success(`Loaded target ${found.name}! 🏋️`);
-    } else {
-      // Fallback details if not fully loaded yet
-      const fallbackMap: Record<string, Partial<ExerciseItem>> = {
-        "0032": {
-          id: "0032",
-          name: "barbell deadlift",
-          category: "upper legs",
-          body_part: "upper legs",
-          equipment: "barbell",
-          instructions: { en: "Lift loaded barbell from floor keeping back aligned." },
-          target: "glutes",
-          image: "images/0032-ila4NZS.jpg",
-          gif_url: "videos/0032-ila4NZS.gif",
-        },
-        "0025": {
-          id: "0025",
-          name: "barbell bench press",
-          category: "chest",
-          body_part: "chest",
-          equipment: "barbell",
-          instructions: { en: "Lower bar to chest and drive back up flat." },
-          target: "pectorals",
-          image: "images/0025-EIeI8Vf.jpg",
-          gif_url: "videos/0025-EIeI8Vf.gif",
-        },
-        "0294": {
-          id: "0294",
-          name: "dumbbell biceps curl",
-          category: "upper arms",
-          body_part: "upper arms",
-          equipment: "dumbbell",
-          instructions: { en: "Curl weights to shoulders while keeping elbows tucked." },
-          target: "biceps",
-          image: "images/0294-NbVPDMW.jpg",
-          gif_url: "videos/0294-NbVPDMW.gif",
-        },
-      };
-
-      const customFallback = fallbackMap[exerciseId];
-      if (customFallback) {
-        setSelected(customFallback as ExerciseItem);
-        toast.info(`Loaded target session!`);
-      } else {
-        toast.error("Connecting to local database... Try again.");
-      }
-    }
-  };
-
   return (
     <PhoneShell>
-      {/* Visual CSS Accent Tokens for Volt Style */}
+      {/* Premium dark volt animation styling variables */}
       <style
         dangerouslySetInnerHTML={{
           __html: `
@@ -657,13 +835,10 @@ function ExercisePage() {
         }
         .focus-within-volt:focus-within {
           border-color: #ccff00 !important;
-          box-shadow: 0 0 14px rgba(204, 255, 0, 0.28) !important;
+          box-shadow: 0 0 12px rgba(204, 255, 0, 0.25) !important;
         }
         .animate-fade-in {
           animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        .scrollbar-none::-webkit-scrollbar {
-          display: none;
         }
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(8px); }
@@ -673,68 +848,66 @@ function ExercisePage() {
         }}
       />
 
-      {/* Screen View Render Pipeline */}
       <div className="flex-grow flex flex-col min-h-0 bg-zinc-950 text-white relative">
-        
+
         {/* ==============================================
-            SCREEN 1: WELCOME TAB
+            SCREEN 1: WELCOME TAB (FITNEST ATHLETE OVERLAY)
             ============================================== */}
         {activeTab === "welcome" && (
           <div 
             className="flex-grow flex flex-col justify-between p-6 relative overflow-hidden bg-cover bg-center animate-fade-in"
             style={{ 
-              backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.2) 20%, rgba(9,9,11,0.92) 80%), url('https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=800&auto=format&fit=crop&q=80')` 
+              backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.1) 10%, rgba(9,9,11,0.95) 85%), url('https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=800&auto=format&fit=crop&q=80')` 
             }}
           >
-            {/* Header Branding */}
             <div className="flex justify-center mt-6">
               <div className="flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-volt" />
+                <span className="h-2 w-2 rounded-full bg-volt animate-ping" />
                 <span className="font-display text-base font-black italic tracking-widest text-white">
                   FITNEST
                 </span>
               </div>
             </div>
 
-            {/* Bottom Actions and Copy */}
             <div className="space-y-6 mb-8 text-left">
               <div className="space-y-2">
                 <h1 className="font-display text-4xl font-extrabold tracking-tight leading-tight uppercase italic text-white">
-                  Get Stronger <br />
-                  Every Day
+                  Record Your <br />
+                  Track Now
                 </h1>
                 <p className="text-[11px] text-zinc-400 max-w-[270px] leading-relaxed">
-                  Personalized workouts, live tracking, and trainer support — all in one app.
+                  Record and monitor your running tracks in an easy and organized way.
                 </p>
               </div>
 
-              {/* Smartwatch visual dots indicators */}
               <div className="flex gap-1 items-center">
-                <span className="h-1 w-3 rounded-full bg-zinc-700" />
                 <span className="h-1 w-6 rounded-full bg-volt" />
+                <span className="h-1 w-3 rounded-full bg-zinc-700" />
                 <span className="h-1 w-3 rounded-full bg-zinc-700" />
               </div>
 
-              {/* Interactive buttons */}
               <div className="space-y-3">
                 <button
                   type="button"
                   onClick={() => {
-                    setActiveTab("home");
-                    toast.success("Welcome Eugene! Profile loaded ⚡");
+                    setActiveTab("track_dashboard");
+                    toast.success("Ready to track! Choose an activity split below ⚡");
                   }}
                   className="w-full bg-volt hover:bg-[#b0db00] text-black py-4 rounded-3xl font-display font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-95 shadow-lg cursor-pointer"
                 >
-                  <span>Start Training</span>
+                  <span>Get Started</span>
                   <ArrowRight className="h-4 w-4 stroke-[3px]" />
                 </button>
                 
                 <button
                   type="button"
-                  onClick={() => toast.success("Connecting with PulsePeak Smartwatch... 📲")}
-                  className="w-full bg-zinc-900/80 hover:bg-zinc-800 text-white border border-zinc-800 py-4 rounded-3xl font-display font-bold text-xs uppercase tracking-wider transition active:scale-95 cursor-pointer"
+                  onClick={() => {
+                    setActiveTab("home");
+                    toast.info("Switched to Eugene Gym Core Dashboard!");
+                  }}
+                  className="w-full bg-zinc-900/80 hover:bg-zinc-800 text-white border border-zinc-805 py-4 rounded-3xl font-display font-bold text-xs uppercase tracking-wider transition active:scale-95 cursor-pointer"
                 >
-                  Connect Smartwatch
+                  Go to Gym Guides
                 </button>
               </div>
             </div>
@@ -742,216 +915,314 @@ function ExercisePage() {
         )}
 
         {/* ==============================================
-            SCREEN 2: DASHBOARD HOME
+            SCREEN 2: DEVON LANE ACTIVITY LIST
             ============================================== */}
-        {activeTab === "home" && (
+        {activeTab === "track_dashboard" && (
           <div className="flex-grow flex flex-col min-h-0 bg-zinc-950 overflow-y-auto pb-24 scrollbar-none animate-fade-in">
-            {/* Top Navigation & Profile */}
-            <div className="px-5 pt-6 pb-3 flex items-center justify-between">
+            {/* Header */}
+            <div className="px-5 pt-6 pb-2.5 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <img
-                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
-                  alt="Eugene avatar"
+                  src="https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=100&auto=format&fit=crop&q=80"
+                  alt="Devon Lane avatar"
                   className="h-10 w-10 rounded-full border border-zinc-800 object-cover"
                 />
                 <div>
-                  <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Welcome back</p>
-                  <p className="text-sm font-black text-white capitalize leading-tight">Eugene</p>
+                  <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Good Morning,</p>
+                  <p className="text-sm font-black text-white capitalize leading-tight">Devon Lane</p>
                 </div>
               </div>
               <button 
-                onClick={() => toast.info("Your notifications are completely up to date! 🔔")}
+                onClick={() => toast.info("Device GPS fully calibrated! 📡")}
                 className="h-9 w-9 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white"
               >
-                <Bell className="h-4.5 w-4.5" />
+                <Bell className="h-4.5 w-4.5 animate-pulse" />
               </button>
             </div>
 
-            {/* Calories Burned visual gauge card */}
+            {/* Weather Indicators visual card */}
             <div className="px-5 mt-3">
-              <div className="rounded-3xl bg-volt p-5 text-black relative overflow-hidden flex justify-between items-center shadow-lg">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-1.5">
-                    <Activity className="h-4.5 w-4.5 text-black" />
-                    <span className="text-[10px] uppercase font-black tracking-widest text-zinc-800">Calories Burned</span>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-zinc-800">Your Daily Calories</p>
-                    <p className="text-3xl font-black italic tracking-tighter mt-1">3,250 <span className="text-[11px] font-bold tracking-normal uppercase">kcal</span></p>
-                  </div>
-                </div>
-
-                {/* Semicircular progress gauge representation using custom styles */}
-                <div className="relative h-20 w-32 flex items-center justify-center shrink-0">
-                  <svg className="w-full h-full transform -rotate-180" viewBox="0 0 100 50">
-                    <path
-                      d="M 10 50 A 40 40 0 0 1 90 50"
-                      fill="none"
-                      stroke="#87b000"
-                      strokeWidth="10"
-                      strokeLinecap="round"
-                    />
-                    <path
-                      d="M 10 50 A 40 40 0 0 1 90 50"
-                      fill="none"
-                      stroke="black"
-                      strokeWidth="10"
-                      strokeLinecap="round"
-                      strokeDasharray="125"
-                      strokeDashoffset="35"
-                    />
-                  </svg>
-                  <div className="absolute bottom-1 text-center">
-                    <span className="text-[9px] font-black uppercase text-zinc-850">80% Burned</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Heart Rate / Workout Time Row */}
-            <div className="px-5 mt-4 grid grid-cols-2 gap-3.5">
-              <div className="bg-zinc-900 border border-zinc-850 p-4 rounded-3xl flex flex-col justify-between h-24">
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] uppercase font-black tracking-widest text-zinc-500">Heart Rate</span>
-                  <div className="h-6 w-6 rounded-full bg-volt/10 flex items-center justify-center">
-                    <Heart className="h-3 w-3 text-volt fill-volt animate-pulse" />
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xl font-black tracking-tight text-white">112 <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Bpm</span></p>
-                </div>
-              </div>
-
-              <div className="bg-zinc-900 border border-zinc-850 p-4 rounded-3xl flex flex-col justify-between h-24">
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] uppercase font-black tracking-widest text-zinc-500">Workout Time</span>
-                  <div className="h-6 w-6 rounded-full bg-volt/10 flex items-center justify-center">
-                    <Clock className="h-3 w-3 text-volt" />
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xl font-black tracking-tight text-white">5h 40m <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">this week</span></p>
-                </div>
-              </div>
-            </div>
-
-            {/* Trainer Section */}
-            <div className="px-5 mt-6 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Trainer</h3>
-                <button
-                  type="button"
-                  onClick={() => toast.info("Opening Coaches Panel... 🧑‍🏫")}
-                  className="text-[10px] font-bold text-volt uppercase hover:underline cursor-pointer"
-                >
-                  See All
-                </button>
-              </div>
-
-              <div className="bg-zinc-900 border border-zinc-850 rounded-3xl p-3 flex items-center justify-between">
+              <div className="rounded-3xl bg-zinc-900 border border-zinc-850 p-4.5 flex justify-between items-center shadow">
                 <div className="flex items-center gap-3">
-                  <img
-                    src="https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=200&auto=format&fit=crop&q=80"
-                    alt="Coach Alex"
-                    className="h-11 w-11 rounded-2xl object-cover border border-zinc-800"
-                  />
+                  <div className="h-10 w-10 rounded-2xl bg-zinc-950 flex items-center justify-center border border-zinc-800 text-amber-500">
+                    <CloudSun className="h-5 w-5" />
+                  </div>
                   <div>
-                    <p className="text-[11px] font-black text-white">Coach Alex</p>
-                    <p className="text-[8.5px] font-extrabold text-volt uppercase tracking-wider mt-0.5">New Feedback Available</p>
+                    <p className="text-[11px] font-black text-white">Partly Cloudy</p>
+                    <p className="text-[8.5px] font-extrabold text-zinc-500 uppercase tracking-widest mt-0.5">Istanbul, Turkey</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => toast.success("Message Coach Alex: 'Great form today Eugene!' 💬")}
-                  className="h-8 w-8 rounded-full bg-volt hover:bg-[#b0db00] flex items-center justify-center text-black shadow active:scale-95 transition"
-                >
-                  <MessageSquare className="h-3.5 w-3.5" strokeWidth={2.5} />
-                </button>
+                <div className="text-right">
+                  <span className="text-sm font-black text-white block">29° / 22°</span>
+                  <span className="text-[8px] font-extrabold text-volt uppercase tracking-wider">Perfect Tracking climate</span>
+                </div>
               </div>
             </div>
 
-            {/* Today Exercise section */}
-            <div className="px-5 mt-6 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Today Exercise</h3>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab("workouts");
-                    setWorkoutsView("session");
-                  }}
-                  className="text-[10px] font-bold text-volt uppercase hover:underline cursor-pointer"
-                >
-                  See All
-                </button>
-              </div>
-
-              <div className="rounded-3xl border border-zinc-850 bg-gradient-to-r from-zinc-900 to-zinc-950 p-4.5 flex items-center justify-between relative overflow-hidden shadow-md">
-                <div
-                  className="absolute inset-0 bg-cover bg-center opacity-15 pointer-events-none"
-                  style={{ backgroundImage: `url('https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=450&auto=format&fit=crop&q=80')` }}
-                />
-                <div className="relative z-10 space-y-2.5">
-                  <span className="text-[8px] uppercase tracking-widest text-volt font-black bg-volt/10 border border-volt/20 px-2 py-0.5 rounded-md inline-block">
-                    Mid-Level
-                  </span>
-                  <div>
-                    <h4 className="font-display text-sm font-black uppercase tracking-wide">Chest Day</h4>
-                    <p className="text-[9px] text-zinc-400 mt-0.5 leading-tight">Power and definition in every rep.</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-[9px] text-volt font-black uppercase bg-zinc-950/70 py-1 px-2.5 border border-zinc-800 rounded-lg w-max">
-                    <Clock className="h-3 w-3" />
-                    <span>45 Minutes</span>
-                  </div>
-                </div>
-
-                <button 
-                  onClick={() => launchTargetExercise("0025")}
-                  className="h-11 w-11 rounded-full bg-volt hover:bg-[#b0db00] flex items-center justify-center text-black z-10 active:scale-95 transition relative shadow-lg"
-                >
-                  <Play className="h-4.5 w-4.5 fill-black ml-0.5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Scheduled Section */}
-            <div className="px-5 mt-6 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Scheduled</h3>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("schedule")}
-                  className="text-[10px] font-bold text-volt uppercase hover:underline cursor-pointer"
-                >
-                  All Schedules
-                </button>
-              </div>
-
-              <div className="bg-zinc-900 border border-zinc-850 rounded-3xl p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-2xl bg-zinc-950 flex items-center justify-center border border-zinc-800 text-volt">
-                    <Dumbbell className="h-4.5 w-4.5" />
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-black text-white">Bench Press</p>
-                    <p className="text-[8.5px] font-extrabold text-zinc-500 uppercase tracking-widest mt-0.5">Today, 7:00 PM</p>
-                  </div>
-                </div>
+            {/* Total Steps Maps cards */}
+            <div className="px-5 mt-4">
+              <div className="rounded-3xl border border-zinc-850 bg-zinc-900/60 p-5 relative overflow-hidden shadow">
+                {/* Visual grid background simulation */}
+                <div className="absolute right-0 top-0 bottom-0 w-2/5 bg-zinc-950/60 opacity-30 border-l border-zinc-800 pointer-events-none" />
                 
-                {/* Visual active alarm indicator switch */}
-                <button 
-                  onClick={() => toast.success("Bench Press Reminder is set active! 🔔")}
-                  className="h-8 px-3 rounded-full bg-volt/10 border border-volt/20 text-[9px] font-black text-volt uppercase tracking-wider flex items-center gap-1 active:scale-95 transition"
-                >
-                  <Bell className="h-3 w-3" />
-                  <span>ON</span>
-                </button>
+                <div className="relative z-10 space-y-4 text-left">
+                  <div>
+                    <span className="text-[9px] uppercase tracking-widest text-zinc-500 font-black">Total Steps</span>
+                    <p className="text-3xl font-black italic tracking-tighter mt-1">4,134</p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <span className="text-[8.5px] font-black uppercase bg-red-500/10 border border-red-500/20 text-red-500 px-2 py-0.5 rounded flex items-center gap-1">
+                      <Flame className="h-2.5 w-2.5 fill-red-500 text-red-500" />
+                      864 Cal
+                    </span>
+                    <span className="text-[8.5px] font-black uppercase bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 px-2 py-0.5 rounded flex items-center gap-1">
+                      <Navigation className="h-2.5 w-2.5 fill-emerald-500 text-emerald-500" />
+                      112 Km
+                    </span>
+                    <span className="text-[8.5px] font-black uppercase bg-amber-500/10 border border-amber-500/20 text-amber-600 px-2 py-0.5 rounded flex items-center gap-1">
+                      <Clock className="h-2.5 w-2.5 text-amber-500" />
+                      454 Min
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
+
+            {/* Activities Selector section */}
+            <div className="px-5 mt-6 space-y-3.5">
+              <div className="flex items-center justify-between border-b border-zinc-900 pb-2">
+                <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Activity Selector</h3>
+                <button
+                  onClick={() => toast.info("Opening all custom outdoors records...")}
+                  className="text-[10px] font-bold text-volt uppercase hover:underline cursor-pointer"
+                >
+                  See All
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div 
+                  onClick={() => launchActivityTracker("Walking")}
+                  className="bg-zinc-900 border border-zinc-850 hover:border-zinc-800 p-4 rounded-3xl flex items-center justify-between cursor-pointer group transition active:scale-[0.98]"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-2xl bg-zinc-950 flex items-center justify-center text-zinc-400 group-hover:text-volt border border-zinc-850 transition">
+                      <span className="text-lg">🚶</span>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[11px] font-black text-white group-hover:text-volt transition-colors">Walking</p>
+                      <p className="text-[8.5px] font-bold text-zinc-500 mt-0.5 uppercase tracking-wide">6 Holy Cross Circle</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs font-black text-zinc-300">10 Km</span>
+                    <ChevronRight className="h-4 w-4 text-zinc-500 group-hover:text-volt transition-colors" />
+                  </div>
+                </div>
+
+                <div 
+                  onClick={() => launchActivityTracker("Running")}
+                  className="bg-volt hover:bg-[#b0db00] p-4 rounded-3xl flex items-center justify-between cursor-pointer group transition active:scale-[0.98] text-black shadow-lg"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-2xl bg-zinc-950 flex items-center justify-center text-white border border-zinc-800">
+                      <span className="text-lg">🏃</span>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[11px] font-black text-black">Running</p>
+                      <p className="text-[8.5px] font-bold text-zinc-800 mt-0.5 uppercase tracking-wide">719 Washington Alley</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs font-black text-black">6 Km</span>
+                    <ChevronRight className="h-4 w-4 text-black" />
+                  </div>
+                </div>
+
+                <div 
+                  onClick={() => launchActivityTracker("Cycling")}
+                  className="bg-zinc-900 border border-zinc-850 hover:border-zinc-800 p-4 rounded-3xl flex items-center justify-between cursor-pointer group transition active:scale-[0.98]"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-2xl bg-zinc-950 flex items-center justify-center text-zinc-400 group-hover:text-volt border border-zinc-850 transition">
+                      <span className="text-lg">🚴</span>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[11px] font-black text-white group-hover:text-volt transition-colors">Cycling</p>
+                      <p className="text-[8.5px] font-bold text-zinc-500 mt-0.5 uppercase tracking-wide">6 Golf Course Alley</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs font-black text-zinc-300">17 Km</span>
+                    <ChevronRight className="h-4 w-4 text-zinc-500 group-hover:text-volt transition-colors" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* History Logs drawer */}
+            {completedTracks.length > 0 && (
+              <div className="px-5 mt-6 space-y-3.5">
+                <div className="flex items-center justify-between border-t border-zinc-900 pt-4 pb-1">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-zinc-500">Activity History logs</h3>
+                  <span className="text-[8px] uppercase bg-zinc-900 text-zinc-400 px-2 py-0.5 rounded border border-zinc-800">{completedTracks.length} tracks</span>
+                </div>
+                <div className="space-y-2">
+                  {completedTracks.map((tr, idx) => (
+                    <div key={idx} className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-3 flex justify-between items-center text-left">
+                      <div>
+                        <span className="text-[8px] uppercase bg-volt/10 text-volt px-1.5 py-0.5 rounded border border-volt/20 font-black">{tr.type}</span>
+                        <p className="text-[10px] font-bold text-zinc-300 mt-1 capitalize">{tr.address}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[11px] font-black text-white">{tr.dist} Km</span>
+                        <span className="text-[8px] text-zinc-500 font-bold block mt-0.5">{tr.time} · {tr.cal} Cal</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         {/* ==============================================
-            SCREEN 3: WORKOUT DETAIL / EXERCISES
+            SCREEN 3: GPS MAP TRACK RECORDING LIVE
+            ============================================== */}
+        {activeTab === "track_recording" && (
+          <div className="flex-grow flex flex-col min-h-0 bg-zinc-950 overflow-hidden relative animate-fade-in text-white">
+            
+            {/* Top address location bar */}
+            <div className="px-5 pt-6 pb-3 flex items-center justify-between bg-zinc-950 border-b border-zinc-900 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setTrackingActive(false);
+                  setActiveTab("track_dashboard");
+                }}
+                className="h-9 w-9 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white"
+              >
+                <X className="h-4.5 w-4.5" />
+              </button>
+
+              <div className="text-center">
+                <p className="text-[10.5px] font-black text-white flex items-center gap-1 justify-center capitalize">
+                  <MapPin className="h-3.5 w-3.5 text-volt animate-bounce" />
+                  <span>710 1st St. Easton, PA</span>
+                </p>
+                <span className="text-[8px] text-zinc-500 font-extrabold uppercase tracking-widest block mt-0.5">Chester County live track</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => toast.success("Google Maps Satellite tracking enabled! 🌐")}
+                className="h-9 w-9 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white"
+              >
+                <SlidersHorizontal className="h-4.5 w-4.5 text-volt" />
+              </button>
+            </div>
+
+            {/* Core Stats bar block */}
+            <div className="px-5 py-4 bg-zinc-950 border-b border-zinc-900 shrink-0 grid grid-cols-3 gap-2 text-center">
+              <div>
+                <span className="text-[9px] uppercase tracking-widest text-zinc-500 font-black">Distance</span>
+                <p className="text-xl font-black italic text-volt mt-1">{trackingDistance.toFixed(2)} <span className="text-[9px] tracking-normal font-bold">Km</span></p>
+              </div>
+              <div className="border-x border-zinc-900">
+                <span className="text-[9px] uppercase tracking-widest text-zinc-500 font-black">Duration</span>
+                <p className="text-xl font-black text-white mt-1">{formatTime(trackingTime)}</p>
+              </div>
+              <div>
+                <span className="text-[9px] uppercase tracking-widest text-zinc-500 font-black">Calories</span>
+                <p className="text-xl font-black italic text-volt mt-1">{trackingCalories} <span className="text-[9px] tracking-normal font-bold">Cal</span></p>
+              </div>
+            </div>
+
+            {/* Simulated Neon Vector GPS Map Viewport */}
+            <div className="flex-grow relative overflow-hidden bg-zinc-950">
+              <canvas
+                ref={canvasRef}
+                width={400}
+                height={400}
+                className="h-full w-full object-cover"
+              />
+
+              {/* Float floating lap overlays badge */}
+              <div className="absolute top-4 left-4 bg-zinc-950/85 border border-zinc-850 backdrop-blur-md px-3.5 py-1.5 rounded-2xl flex items-center gap-1.5 text-[8.5px] font-black uppercase text-volt shadow">
+                <span className="h-1.5 w-1.5 rounded-full bg-volt animate-ping" />
+                <span>Simulating {trackingType}...</span>
+              </div>
+            </div>
+
+            {/* Real-time Lap Splits list drawer */}
+            {trackingLaps.length > 0 && (
+              <div className="h-28 bg-zinc-950 border-t border-zinc-900 shrink-0 overflow-y-auto px-5 py-3 space-y-1.5 scrollbar-none">
+                <span className="text-[8px] uppercase tracking-widest text-zinc-500 font-black block pb-1 border-b border-zinc-900">Splits & Lap Markers:</span>
+                {trackingLaps.map((lap) => (
+                  <div key={lap.id} className="flex justify-between items-center text-[10px] text-zinc-400">
+                    <span className="font-bold flex items-center gap-1">
+                      <Flag className="h-3 w-3 text-volt" />
+                      Lap {lap.id}
+                    </span>
+                    <span>{lap.distance} Km</span>
+                    <span className="font-black text-white">{lap.split}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Bottom Actions control bar */}
+            <div className="px-6 py-5 bg-zinc-950 border-t border-zinc-900 shrink-0 flex items-center justify-between">
+              {/* Lap Capture flag */}
+              <button
+                onClick={captureLapSplit}
+                disabled={!trackingActive}
+                className={`h-11 w-11 rounded-full border flex items-center justify-center transition active:scale-95 cursor-pointer shadow-md ${
+                  trackingActive
+                    ? "bg-amber-500/10 border-amber-500/30 text-amber-500"
+                    : "bg-zinc-900/50 border-zinc-900 text-zinc-650"
+                }`}
+                title="Capture Lap split"
+              >
+                <Flag className="h-4.5 w-4.5 text-[#f59e0b] fill-[#f59e0b]" />
+              </button>
+
+              {/* Play / Pause toggle */}
+              <button
+                onClick={() => {
+                  setTrackingActive(!trackingActive);
+                  toast.success(trackingActive ? "Simulated GPS Track paused." : "GPS Track simulator resumed!");
+                }}
+                className="h-14 w-14 rounded-full bg-volt hover:bg-[#b0db00] flex items-center justify-center text-black active:scale-95 transition shadow-lg cursor-pointer"
+                title={trackingActive ? "Pause track" : "Resume track"}
+              >
+                {trackingActive ? (
+                  <Pause className="h-5 w-5 stroke-[3px]" />
+                ) : (
+                  <Play className="h-5 w-5 fill-black ml-0.5" />
+                )}
+              </button>
+
+              {/* Stop & Log button */}
+              <button
+                onClick={() => {
+                  if (window.confirm("Would you like to complete and log this outdoor workout progress?")) {
+                    stopAndLogTrack();
+                  }
+                }}
+                className="h-11 w-11 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 active:scale-95 transition shadow-md cursor-pointer"
+                title="Stop and log track"
+              >
+                <Square className="h-4 w-4 fill-red-500 text-red-500" />
+              </button>
+            </div>
+
+          </div>
+        )}
+
+        {/* ==============================================
+            SCREEN 3: GYM WORKOUT DETAIL / EXERCISES
             ============================================== */}
         {activeTab === "workouts" && (
           <div className="flex-grow flex flex-col min-h-0 bg-zinc-950 overflow-y-auto pb-24 scrollbar-none animate-fade-in">
@@ -967,7 +1238,6 @@ function ExercisePage() {
                   <p className="text-[8.5px] text-zinc-500 uppercase tracking-widest font-bold">Coach Xander</p>
                   <h2 className="font-display text-xl font-black uppercase italic tracking-wide text-white">Core Workout</h2>
                   
-                  {/* Category Pills */}
                   <div className="flex gap-1.5 mt-2">
                     <span className="text-[8px] font-extrabold uppercase bg-zinc-950/70 border border-zinc-800 text-zinc-400 px-2 py-0.5 rounded-md flex items-center gap-1">
                       <Clock className="h-2.5 w-2.5 text-volt" />
@@ -1024,7 +1294,6 @@ function ExercisePage() {
                   <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">8 sets x 3 reps</span>
                 </div>
 
-                {/* Session exercises items matching photo exactly */}
                 <div className="space-y-3">
                   <div 
                     onClick={() => launchTargetExercise("0001")}
@@ -1092,7 +1361,6 @@ function ExercisePage() {
             {/* View 2: Complete 1,324 Database search/filter library */}
             {workoutsView === "library" && (
               <div className="px-5 mt-5 space-y-4">
-                {/* Search Bar Panel */}
                 <div className="relative flex items-center gap-2">
                   <div className="relative flex-1 focus-within-volt rounded-2xl overflow-hidden transition-all duration-200">
                     <Search className="absolute left-4 top-3.5 h-4 w-4 text-zinc-500" />
@@ -1141,7 +1409,6 @@ function ExercisePage() {
                   </button>
                 </div>
 
-                {/* Categories selector block */}
                 <div className="space-y-2">
                   <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Categories</h4>
                   <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-none">
@@ -1167,7 +1434,6 @@ function ExercisePage() {
                   </div>
                 </div>
 
-                {/* 2-Column Catalog Grid */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between border-t border-zinc-900 pt-4">
                     <h4 className="text-xs font-black uppercase tracking-widest text-zinc-450">Exercise Library</h4>
@@ -1177,12 +1443,12 @@ function ExercisePage() {
                   </div>
 
                   {loading ? (
-                    <div className="py-12 text-center text-xs text-zinc-500 animate-pulse flex flex-col items-center gap-1">
+                    <div className="py-12 text-center text-xs text-zinc-550 animate-pulse flex flex-col items-center gap-1">
                       <Sparkles className="h-5 w-5 text-volt animate-spin" />
                       <p>Loading database...</p>
                     </div>
                   ) : filteredExercises.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-zinc-850 bg-zinc-900/30 py-12 text-center text-xs text-zinc-500">
+                    <div className="rounded-2xl border border-dashed border-zinc-850 bg-zinc-900/30 py-12 text-center text-xs text-zinc-550">
                       No exercises match your queries.
                     </div>
                   ) : (
@@ -1215,7 +1481,7 @@ function ExercisePage() {
         )}
 
         {/* ==============================================
-            SCREEN 4: SCHEDULE TARGETS
+            SCREEN 4: GYM SCHEDULE TARGETS
             ============================================== */}
         {activeTab === "schedule" && (
           <div className="flex-grow flex flex-col min-h-0 bg-zinc-950 overflow-y-auto pb-24 scrollbar-none animate-fade-in">
@@ -1303,7 +1569,7 @@ function ExercisePage() {
             {/* Steps Count Progress Widget */}
             <div className="px-5 mt-6 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-black uppercase tracking-widest text-zinc-450">Steps</h3>
+                <h3 className="text-xs font-black uppercase tracking-widest text-zinc-455">Steps</h3>
                 <button 
                   onClick={() => toast.success("Step counter sync complete! 🚶")}
                   className="text-[10px] font-extrabold text-volt uppercase tracking-wider cursor-pointer"
@@ -1328,9 +1594,9 @@ function ExercisePage() {
             {/* Workout Checklist Widget */}
             <div className="px-5 mt-6 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-black uppercase tracking-widest text-zinc-450">Workout Checklist</h3>
+                <h3 className="text-xs font-black uppercase tracking-widest text-zinc-455">Workout Checklist</h3>
                 <button 
-                  onClick={() => toast.success("Dynamic list updated! Add, complete, and track in real-time.")}
+                  onClick={() => toast.success("Checklist is synced and active!")}
                   className="text-[10px] font-bold text-volt uppercase hover:underline cursor-pointer"
                 >
                   See All
@@ -1347,7 +1613,7 @@ function ExercisePage() {
                       );
                       toast.success(`Checklist step: '${chk.text}' status updated!`);
                     }}
-                    className="flex items-center justify-between p-1.5 hover:bg-zinc-950/30 rounded-xl cursor-pointer transition"
+                    className="flex items-center justify-between p-1.5 hover:bg-zinc-955 rounded-xl cursor-pointer transition"
                   >
                     <div className="flex items-center gap-3">
                       <div className={`h-5 w-5 rounded-full flex items-center justify-center border transition-all ${
@@ -1361,7 +1627,7 @@ function ExercisePage() {
                         {chk.text}
                       </span>
                     </div>
-                    <span className="text-[9px] font-bold text-zinc-500">⏰ {chk.id === 1 ? "55M" : chk.id === 2 ? "30M" : "20M"}</span>
+                    <span className="text-[9px] font-bold text-zinc-550">⏰ {chk.id === 1 ? "55M" : chk.id === 2 ? "30M" : "20M"}</span>
                   </div>
                 ))}
               </div>
@@ -1372,22 +1638,57 @@ function ExercisePage() {
       </div>
 
       {/* ==============================================
-          FIXED FOOTER NAVIGATION TAB BAR
+          UNIFIED 5-TAB FITNEST APPLICATION BOTTOM NAV BAR
           ============================================== */}
-      {activeTab !== "welcome" && (
-        <div className="absolute bottom-0 left-0 right-0 bg-zinc-950/92 backdrop-blur-md border-t border-zinc-900 py-3.5 px-6 flex justify-between items-center z-40">
+      {activeTab !== "welcome" && activeTab !== "track_welcome" && activeTab !== "track_recording" && (
+        <div className="absolute bottom-0 left-0 right-0 bg-zinc-950/94 backdrop-blur-md border-t border-zinc-900 py-3.5 px-5 flex justify-between items-center z-40">
+          {/* 1. Home Dashboard button (Eugene Gym dashboard) */}
           <button
-            onClick={() => setActiveTab("home")}
+            onClick={() => {
+              setActiveTab("home");
+              toast.info("Eugene's Gym Dashboard loaded.");
+            }}
             className={`flex flex-col items-center gap-1 transition ${
               activeTab === "home" ? "text-volt scale-105" : "text-zinc-500 hover:text-zinc-300"
             }`}
           >
-            <HomeIcon className="h-4.5 w-4.5" />
-            <span className="text-[7.5px] font-extrabold uppercase tracking-widest">Home</span>
+            <UserIcon className="h-4.5 w-4.5" />
+            <span className="text-[7.5px] font-extrabold uppercase tracking-widest">Gym Home</span>
           </button>
 
+          {/* 2. Activities List button (Devon Lane activity tracker) */}
           <button
-            onClick={() => setActiveTab("workouts")}
+            onClick={() => {
+              setActiveTab("track_dashboard");
+              toast.info("Devon Lane's Activity Tracker loaded.");
+            }}
+            className={`flex flex-col items-center gap-1 transition ${
+              activeTab === "track_dashboard" ? "text-volt scale-105" : "text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            <Activity className="h-4.5 w-4.5" />
+            <span className="text-[7.5px] font-extrabold uppercase tracking-widest">Activities</span>
+          </button>
+
+          {/* 3. Pulsing Stopwatch center button (Pops up track welcome / start tracking map!) */}
+          <div className="relative -mt-6">
+            <button
+              onClick={() => {
+                setActiveTab("track_welcome");
+                toast.success("Ready to track! Let's get started. 🏃");
+              }}
+              className="h-13 w-13 rounded-full bg-volt hover:bg-[#b0db00] text-black shadow-glow flex items-center justify-center border-4 border-zinc-950 ring-2 ring-volt/20 hover:scale-105 active:scale-95 transition"
+            >
+              <Clock className="h-5.5 w-5.5 stroke-[2.5px] animate-pulse text-black" />
+            </button>
+          </div>
+
+          {/* 4. Dumbbell workouts button (Coach Xander core workouts & exercises library) */}
+          <button
+            onClick={() => {
+              setActiveTab("workouts");
+              toast.info("Coach Xander's Session & Exercises Library loaded.");
+            }}
             className={`flex flex-col items-center gap-1 transition ${
               activeTab === "workouts" ? "text-volt scale-105" : "text-zinc-500 hover:text-zinc-300"
             }`}
@@ -1396,8 +1697,12 @@ function ExercisePage() {
             <span className="text-[7.5px] font-extrabold uppercase tracking-widest">Workouts</span>
           </button>
 
+          {/* 5. Schedule calendar checklist button */}
           <button
-            onClick={() => setActiveTab("schedule")}
+            onClick={() => {
+              setActiveTab("schedule");
+              toast.info("Wednesday Gym Targets Checklist loaded.");
+            }}
             className={`flex flex-col items-center gap-1 transition ${
               activeTab === "schedule" ? "text-volt scale-105" : "text-zinc-500 hover:text-zinc-300"
             }`}
@@ -1405,26 +1710,13 @@ function ExercisePage() {
             <Calendar className="h-4.5 w-4.5" />
             <span className="text-[7.5px] font-extrabold uppercase tracking-widest">Schedule</span>
           </button>
-
-          <button
-            onClick={() => {
-              setActiveTab("welcome");
-              toast.info("Welcome details loaded!");
-            }}
-            className={`flex flex-col items-center gap-1 transition ${
-              activeTab === "welcome" ? "text-volt scale-105" : "text-zinc-500 hover:text-zinc-300"
-            }`}
-          >
-            <UserIcon className="h-4.5 w-4.5" />
-            <span className="text-[7.5px] font-extrabold uppercase tracking-widest">Profile</span>
-          </button>
         </div>
       )}
 
       {/* Advanced Filter Drawer slide-up */}
       {showFilterDrawer && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-zinc-950/75 backdrop-blur-sm p-0 animate-fade-in"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-zinc-955/75 backdrop-blur-sm p-0 animate-fade-in"
           onClick={() => setShowFilterDrawer(false)}
         >
           <div
@@ -1511,14 +1803,14 @@ function ExercisePage() {
       {/* Slide-Up Exercise Detail & Log Modal with Video Demonstration */}
       {selected && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-zinc-950/75 backdrop-blur-sm p-0 sm:p-4 text-white animate-fade-in"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-zinc-955/75 backdrop-blur-sm p-0 sm:p-4 text-white animate-fade-in"
           onClick={() => setSelected(null)}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-zinc-900 border border-zinc-800 shadow-glow p-5 flex flex-col max-h-[85vh] overflow-y-auto"
+            className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-zinc-905 border border-zinc-800 shadow-glow p-5 flex flex-col max-h-[85vh] overflow-y-auto"
           >
-            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-zinc-800 block sm:hidden" />
+            <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-zinc-805 block sm:hidden" />
 
             <div className="flex items-start justify-between">
               <div>
@@ -1563,7 +1855,7 @@ function ExercisePage() {
             </div>
 
             {/* Media Player Viewport */}
-            <div className="mt-3 aspect-video w-full overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 flex items-center justify-center relative shadow-inner">
+            <div className="mt-3 aspect-video w-full overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-955 flex items-center justify-center relative shadow-inner">
               {loadingYt ? (
                 <div className="flex flex-col items-center gap-2 text-zinc-500 animate-pulse">
                   <Sparkles className="h-8 w-8 text-volt animate-spin" />
@@ -1617,7 +1909,7 @@ function ExercisePage() {
                   </span>
                 </div>
               </div>
-              <div className="rounded-xl border border-zinc-850 bg-zinc-950/30 p-2.5">
+              <div className="rounded-xl border border-zinc-850 bg-zinc-955 p-2.5">
                 <p className="text-[8px] uppercase tracking-wider text-zinc-500 font-bold">
                   Synergy / Secondary
                 </p>
@@ -1647,7 +1939,7 @@ function ExercisePage() {
                   {selected.equipment}
                 </p>
               </div>
-              <div className="rounded-xl border border-zinc-850 bg-zinc-950/20 py-2 px-1">
+              <div className="rounded-xl border border-zinc-850 bg-zinc-955 py-2 px-1">
                 <p className="text-[8px] uppercase tracking-wider text-zinc-500 font-bold">
                   Burn Rate
                 </p>
@@ -1677,7 +1969,7 @@ function ExercisePage() {
                     <span>{isSpeaking ? "Pause Coach" : "Audio Coach"}</span>
                   </button>
                 </div>
-                <div className="max-h-[120px] overflow-y-auto space-y-2 pr-1 border border-zinc-800 rounded-xl p-3 bg-zinc-950/40 scrollbar-thin">
+                <div className="max-h-[120px] overflow-y-auto space-y-2 pr-1 border border-zinc-800 rounded-xl p-3 bg-zinc-955 scrollbar-thin">
                   {(selected.instruction_steps?.en || [selected.instructions.en]).map(
                     (step, idx) => (
                       <div
@@ -1697,7 +1989,7 @@ function ExercisePage() {
               {/* Stopwatch stopwatch live tracker */}
               <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-3.5 shadow-inner">
                 <div className="flex justify-between items-center mb-2 border-b border-zinc-800 pb-2">
-                  <span className="text-[9px] uppercase font-bold text-zinc-500">
+                  <span className="text-[9px] uppercase font-bold text-zinc-550">
                     Live Active Stopwatch
                   </span>
                   {timerRunning && (
@@ -1710,7 +2002,7 @@ function ExercisePage() {
                     <span className="font-display text-2xl font-black text-white tracking-tight">
                       {formatTime(timeElapsed)}
                     </span>
-                    <span className="text-[8px] text-zinc-500 font-bold uppercase mt-0.5">Elapsed workout time</span>
+                    <span className="text-[8px] text-zinc-550 font-bold uppercase mt-0.5">Elapsed workout time</span>
                   </div>
 
                   <div className="flex gap-2">

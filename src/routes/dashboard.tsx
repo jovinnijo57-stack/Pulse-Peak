@@ -225,17 +225,18 @@ function Dashboard() {
 
         <Link
           to="/exercise"
+          search={{ tab: "tracker" } as any}
           className="block rounded-3xl border border-border bg-gradient-card p-4 shadow-card hover:border-primary/50 transition relative group"
         >
           <div className="flex items-center justify-between">
             <Dumbbell className="h-5 w-5 text-amber-500" />
             <span className="text-[10px] uppercase tracking-widest text-muted-foreground group-hover:text-primary transition">
-              Gym →
+              Train →
             </span>
           </div>
-          <p className="mt-3 font-display text-lg font-bold leading-tight">Ai Gym Exercises</p>
+          <p className="mt-3 font-display text-lg font-bold leading-tight">GPS Track & Gym</p>
           <span className="mt-1 block text-xs text-muted-foreground">
-            Browse exercises & video guides
+            Record runs, walks & browse workouts
           </span>
         </Link>
       </div>
