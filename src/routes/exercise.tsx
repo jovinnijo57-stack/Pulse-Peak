@@ -103,7 +103,9 @@ function ExercisePage() {
   const [showIntro, setShowIntro] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const synthRef = useRef<SpeechSynthesis | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [timerWasStarted, setTimerWasStarted] = useState(false);
+  const [showButton, setShowButton] = useState(false);
 
   useEffect(() => {
     if (intro === "true") {
@@ -113,8 +115,35 @@ function ExercisePage() {
 
   useEffect(() => {
     if (showIntro) {
-      const t = setTimeout(() => setShowIntro(false), 500);
+      setShowButton(false);
+      const t = setTimeout(() => setShowButton(true), 500);
       return () => clearTimeout(t);
+    } else {
+      setShowButton(false);
+    }
+  }, [showIntro]);
+
+  useEffect(() => {
+    if (showIntro && videoRef.current) {
+      const video = videoRef.current;
+      video.defaultMuted = true;
+      video.muted = true;
+      video.playsInline = true;
+      video.setAttribute("playsinline", "true");
+      video.setAttribute("webkit-playsinline", "true");
+      video.load();
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          const playOnInteraction = () => {
+            video.play().catch(() => {});
+            document.removeEventListener("touchstart", playOnInteraction);
+            document.removeEventListener("click", playOnInteraction);
+          };
+          document.addEventListener("touchstart", playOnInteraction);
+          document.addEventListener("click", playOnInteraction);
+        });
+      }
     }
   }, [showIntro]);
 
@@ -294,7 +323,7 @@ function ExercisePage() {
 
 
   return (
-    <PhoneShell hideNav={selected !== null || showLogs} bgClass="bg-zinc-950">
+    <PhoneShell hideNav={showIntro || selected !== null || showLogs} bgClass="bg-zinc-950">
       <style dangerouslySetInnerHTML={{ __html: `
         .volt-scroll::-webkit-scrollbar { display: none; }
         .animate-ex-fade { animation: exFadeIn 0.2s ease forwards; }
@@ -302,7 +331,36 @@ function ExercisePage() {
       `}} />
 
       <div className="relative flex-grow flex flex-col min-h-0 bg-zinc-950 text-white h-full w-full overflow-hidden">
-        {selected ? (
+        {showIntro ? (
+          <div className="relative w-full h-full min-h-dvh flex flex-col items-center justify-end overflow-hidden bg-black">
+            <video
+              ref={videoRef}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="auto"
+              className="absolute inset-0 w-full h-full object-cover"
+            >
+              <source src="/red_video.mp4?v=202605282130" type="video/mp4" />
+            </video>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
+            {showButton && (
+              <div className="relative z-10 flex flex-col items-center gap-3 pb-16 px-6 w-full animate-ex-fade">
+                <button
+                  onClick={() => setShowIntro(false)}
+                  className="w-full max-w-xs py-4 rounded-3xl bg-[#ccff00] text-black font-display font-black text-sm uppercase tracking-widest shadow-[0_0_30px_rgba(204,255,0,0.35)] active:scale-95 transition"
+                >
+                  Get Started
+                </button>
+                <div className="text-center">
+                  <p className="text-white font-display font-black text-base uppercase tracking-tight">AI Gym Guides</p>
+                  <p className="text-white/70 text-[11px] font-semibold tracking-wide mt-0.5">Train your body. Upgrade your mind</p>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : selected ? (
           <div className="flex flex-col h-full w-full overflow-y-auto volt-scroll animate-ex-fade bg-zinc-950 text-white pb-6">
             {/* Close */}
             <div className="px-5 pt-5 pb-3 flex items-center justify-between shrink-0">
