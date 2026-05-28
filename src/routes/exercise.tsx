@@ -1412,7 +1412,7 @@ function ExercisePage() {
               toast.info("Welcome details loaded!");
             }}
             className={`flex flex-col items-center gap-1 transition ${
-              activeTab === "welcome" ? "text-volt scale-105" : "text-zinc-500 hover:text-zinc-300"
+              (activeTab as string) === "welcome" ? "text-volt scale-105" : "text-zinc-500 hover:text-zinc-300"
             }`}
           >
             <UserIcon className="h-4.5 w-4.5" />

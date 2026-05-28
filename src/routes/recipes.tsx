@@ -19,6 +19,8 @@ import {
   Image,
   SlidersHorizontal,
   Copy,
+  Play,
+  Pause,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
@@ -43,6 +45,202 @@ export const Route = createFileRoute("/recipes")({
   head: () => ({ meta: [{ title: "Meal Planner & Chef's Corner — PulsePeak" }] }),
   component: RecipesPage,
 });
+
+const parseMacroNumber = (str: string | undefined | null): number => {
+  if (!str) return 0;
+  const match = str.match(/\d+/);
+  return match ? parseInt(match[0], 10) : 0;
+};
+
+interface DietGuidelines {
+  grade: string;
+  tagline: string;
+  guidelines: string[];
+}
+
+const calculateNutritionGradeAndGuidelines = (recipe: Recipe | null): DietGuidelines => {
+  if (!recipe) {
+    return {
+      grade: "A-",
+      tagline: "Excellent Macro Distribution",
+      guidelines: [
+        "This dish has excellent protein density, perfect for lean muscle growth.",
+        "Limit added table salt—rely on raw fresh herbs and lemon juice for seasoning to support lower blood pressure.",
+        "Pair with steamed brown rice or whole-wheat quinoa to add low-glycemic dietary fiber."
+      ]
+    };
+  }
+
+  const calories = parseMacroNumber(recipe.calories);
+  const protein = parseMacroNumber(recipe.protein);
+  const fat = parseMacroNumber(recipe.fat);
+  const carbs = parseMacroNumber(recipe.carbs);
+
+  // 1. Elite Protein Density (Protein is high relative to calories or absolute protein >= 20g)
+  if (protein >= 20 || (calories > 0 && (protein * 4) / calories >= 0.28)) {
+    return {
+      grade: "A+",
+      tagline: "Elite High-Protein Fuel",
+      guidelines: [
+        `Outstanding protein density (${protein}g), exceptional for lean muscle recovery and satiety.`,
+        "Pair with raw cruciferous greens (like broccoli or kale) to optimize absorption of essential amino acids.",
+        "Perfect post-workout option to kickstart muscle protein synthesis and accelerate glycogen recovery."
+      ]
+    };
+  }
+
+  // 2. Low-Calorie & Nutrient Dense (Calories < 300 kcal and decent Protein)
+  if (calories > 0 && calories < 320 && protein >= 8) {
+    return {
+      grade: "A",
+      tagline: "Lean Nutrient-Dense Balance",
+      guidelines: [
+        `Extremely clean calorie-to-nutrient ratio (${calories} kcal), perfect for fat loss and insulin health.`,
+        "Drizzle with cold-pressed Avocado Oil or a handful of raw pumpkin seeds to supply crucial essential fatty acids.",
+        "Drink a large glass of pure water 10 minutes prior to dining to naturally optimize stomach pH and digestive pacing."
+      ]
+    };
+  }
+
+  // 3. Higher Healthy Lipids focus (Fat >= 15g and decent protein)
+  if (fat >= 15 && protein >= 10) {
+    return {
+      grade: "A-",
+      tagline: "Healthy Fats & Vitality Boost",
+      guidelines: [
+        `Rich healthy lipid structure (${fat}g) supporting healthy hormone regulation and joint health.`,
+        "Ensure cooking oils used are high-quality, cold-pressed (like Extra Virgin Olive Oil) to retain vital antioxidants.",
+        "Pair with steamed fibrous vegetables like asparagus or Brussels sprouts to balance dietary fats with soluble fiber."
+      ]
+    };
+  }
+
+  // 4. Energy focus / Carb-heavy (Carbs >= 40g and lower protein)
+  if (carbs >= 40 && protein < 15) {
+    return {
+      grade: "B",
+      tagline: "High-Energy Carbohydrate Load",
+      guidelines: [
+        `High carbohydrate density (${carbs}g), making this an excellent high-octane glycogen-loading fuel.`,
+        "Add a serving of egg whites, tofu, or organic plant protein to reduce insulin spikes and glycemic load.",
+        "Incorporate a pinch of Ceylon cinnamon or fresh organic ginger to support glucose uptake and metabolic function."
+      ]
+    };
+  }
+
+  // 5. Default Balanced Profile
+  return {
+    grade: "B+",
+    tagline: "Balanced Wholesome Profile",
+    guidelines: [
+      "Well-balanced macro distribution, highly suitable for general metabolic fitness and daily physical energy.",
+      "Limit added table salt—rely on raw fresh cilantro, basil, and a squeeze of lemon juice to support blood pressure.",
+      "Pair with a fresh cucumber-tomato garden salad to increase micronutrient density and vital organic hydration."
+    ]
+  };
+};
+
+const getHealthySubstitute = (ingName: string): React.ReactNode => {
+  const lower = ingName.toLowerCase();
+  
+  if (lower.includes("idli rice") || lower.includes("basmati rice") || lower.includes("rice")) {
+    return (
+      <span>
+        Use **Quinoa**, **Cauliflower Rice**, or **Organic Brown Rice** to double the dietary fiber content, lower the glycemic index, and supply vital magnesium and zinc.
+      </span>
+    );
+  }
+  if (lower.includes("urad dal") || lower.includes("dal") || lower.includes("lentil") || lower.includes("lentils")) {
+    return (
+      <span>
+        Substitute with **Whole Green Mung Beans** or **Organic Red Lentils** for an equally rich, highly digestible plant protein profile with rapid absorption.
+      </span>
+    );
+  }
+  if (lower.includes("chickpeas") || lower.includes("chana") || lower.includes("chickpea")) {
+    return (
+      <span>
+        Swap with **Organic Edamame** or **Black Beans** to provide a superior, nutrient-dense amino acid balance along with rich dietary fiber and iron.
+      </span>
+    );
+  }
+  if (lower.includes("potato") || lower.includes("potatoes")) {
+    return (
+      <span>
+        Use **Organic Sweet Potatoes** or **Mashed Cauliflower** to lower glycemic load, control insulin spikes, and inject rich beta-carotene and Vitamin A.
+      </span>
+    );
+  }
+  if (lower.includes("onion") || lower.includes("onions")) {
+    return (
+      <span>
+        Substitute with **Shallots** or **Leeks** to supply rich prebiotic fructan fiber that fuels beneficial gut bacteria while adding a subtle sweet note.
+      </span>
+    );
+  }
+  if (lower.includes("spinach") || lower.includes("palak")) {
+    return (
+      <span>
+        Use **Organic Swiss Chard** or **Tuscan Kale** to dramatically increase iron density, boost chlorophyll levels, and provide fat-soluble Vitamin K1.
+      </span>
+    );
+  }
+  if (lower.includes("mustard seeds") || lower.includes("mustard seed") || lower.includes("seeds") || lower.includes("seed")) {
+    return (
+      <span>
+        Swap with **Organic Cumin Seeds** or **Fennel Seeds** to introduce robust digestive-enzyme stimulation, anti-inflammatory compounds, and beautiful aromatics.
+      </span>
+    );
+  }
+  if (lower.includes("salt")) {
+    return (
+      <span>
+        Substitute with **Pink Himalayan Mineral Salt** or a generous splash of **Fresh Lemon Juice + Dulse Seaweed Flakes** to elevate flavor naturally while keeping sodium low.
+      </span>
+    );
+  }
+  if (lower.includes("paneer") || lower.includes("tofu")) {
+    return (
+      <span>
+        Use **Organic Extra-Firm Tofu** (pressed and dry-sautéed) as an exact 1:1 plant-based macro replacement that absorbs spice profiles beautifully.
+      </span>
+    );
+  }
+  if (lower.includes("chicken")) {
+    return (
+      <span>
+        Use **Organic Tempeh** or **Extra-Firm Tofu** as a high-protein, cholesterol-free plant-based alternative that mimics texture and cooks perfectly.
+      </span>
+    );
+  }
+  if (lower.includes("butter") || lower.includes("ghee")) {
+    return (
+      <span>
+        Substitute with **Cold-Pressed Extra Virgin Olive Oil** or **Avocado Oil** to supply heart-healthy monounsaturated fats instead of saturated lipids.
+      </span>
+    );
+  }
+  if (lower.includes("milk") || lower.includes("cream")) {
+    return (
+      <span>
+        Swap with **Unsweetened Organic Coconut Milk** or **Homemade Cashew Cream** for a super rich, velvety mouthfeel without lactose or high cholesterol.
+      </span>
+    );
+  }
+  if (lower.includes("sugar") || lower.includes("honey")) {
+    return (
+      <span>
+        Use **Pure Maple Syrup** or **Stevia Extract** to lower glycemic spikes while preserving natural organic sweetness.
+      </span>
+    );
+  }
+
+  return (
+    <span>
+      Use **Fresh Organic Seasonal Greens** or a handful of **Raw Almonds/Walnuts** to add healthy crunch, micronutrients, and dietary fiber.
+    </span>
+  );
+};
 
 function RecipesPage() {
   const qc = useQueryClient();
@@ -1933,36 +2131,6 @@ Return ONLY a valid JSON array of objects, where each object has these exact key
 
                       return (
                         <div className="space-y-4 animate-in fade-in duration-300">
-                          {/* Servings portion scaler slider widget */}
-                          <div className="mb-3.5 flex items-center justify-between p-2.5 rounded-2xl bg-muted/40 border border-border/60">
-                            <div>
-                              <span className="text-[10px] uppercase font-black text-muted-foreground tracking-wider block">Portions/Servings Scaler:</span>
-                              <span className="text-[9px] text-muted-foreground">Adjust quantities & calories instantly</span>
-                            </div>
-                            <div className="flex gap-1.5">
-                              {[1, 1.5, 2, 3].map((mult) => {
-                                const isActive = portionsMultiplier === mult;
-                                return (
-                                  <button
-                                    key={mult}
-                                    type="button"
-                                    onClick={() => {
-                                      setPortionsMultiplier(mult);
-                                      toast.success(`Portions scaled to ${mult}x! 🍳`);
-                                    }}
-                                    className={`px-2 py-1 rounded-lg text-[10px] font-black tracking-wide border transition duration-200 cursor-pointer ${
-                                      isActive
-                                        ? "bg-[#007000] border-[#007000] text-white"
-                                        : "bg-card border-border text-muted-foreground hover:bg-muted"
-                                    }`}
-                                  >
-                                    {mult}x
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-
                           {/* YouTube Video Player with Selector Carousel & Search */}
                           <div className="space-y-3">
                             <span className="text-[10px] uppercase font-extrabold text-muted-foreground tracking-wider block">
@@ -2165,17 +2333,7 @@ Return ONLY a valid JSON array of objects, where each object has these exact key
                                 {substituteIngName && (
                                   <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-[10px] leading-relaxed text-emerald-800 animate-in slide-in-from-top-1 duration-150">
                                     <span className="font-extrabold uppercase block text-[8px] text-emerald-600 tracking-wider">🌟 Recommended healthy substitute:</span>
-                                    {substituteIngName.toLowerCase().includes("paneer") || substituteIngName.toLowerCase().includes("chicken") ? (
-                                      <span>Use **Organic Extra-Firm Tofu** (pressed and dry-sautéed) as an exact 1:1 plant-based macro replacement that absorbs spice profiles beautifully.</span>
-                                    ) : substituteIngName.toLowerCase().includes("butter") || substituteIngName.toLowerCase().includes("ghee") ? (
-                                      <span>Substitute with **Cold-Pressed Extra Virgin Olive Oil** or **Avocado Oil** to supply heart-healthy monounsaturated fats instead of saturated lipids.</span>
-                                    ) : substituteIngName.toLowerCase().includes("milk") || substituteIngName.toLowerCase().includes("cream") ? (
-                                      <span>Swap with **Unsweetened Coconut Milk** or **Cashew Cream** for a super rich, velvety mouthfeel without lactose or high cholesterol.</span>
-                                    ) : substituteIngName.toLowerCase().includes("sugar") || substituteIngName.toLowerCase().includes("honey") ? (
-                                      <span>Use **Pure Maple Syrup** or **Stevia Extract** to lower glycemic spikes while preserving natural organic sweetness.</span>
-                                    ) : (
-                                      <span>Use **Fresh Organic Seasonal Greens** or a handful of **Raw Almonds/Walnuts** to add healthy crunch, micronutrients, and dietary fiber.</span>
-                                    )}
+                                    {getHealthySubstitute(substituteIngName)}
                                   </div>
                                 )}
                               </div>
@@ -2183,34 +2341,33 @@ Return ONLY a valid JSON array of objects, where each object has these exact key
                           </div>
 
                           {/* AI health grade and clinical insights */}
-                          <div className="rounded-2xl border border-zinc-200 bg-gradient-to-br from-card to-emerald-500/5 p-4 shadow-sm space-y-3.5">
-                            <div className="flex items-center gap-3">
-                              {/* Glowing Circle Health Grade */}
-                              <div className="h-11 w-11 rounded-full bg-gradient-to-tr from-[#007000] to-emerald-400 text-white flex items-center justify-center font-display text-lg font-black shadow-md border-2 border-white ring-2 ring-emerald-500/20 shrink-0">
-                                A-
-                              </div>
-                              <div>
-                                <span className="text-[8px] uppercase tracking-widest text-[#007000] font-black">AI Nutrition Grade</span>
-                                <h4 className="text-xs font-black text-foreground">Excellent Macro Distribution</h4>
-                              </div>
-                            </div>
+                          {(() => {
+                            const nutritionGrade = calculateNutritionGradeAndGuidelines(selectedRecipe);
+                            return (
+                              <div className="rounded-2xl border border-zinc-200 bg-gradient-to-br from-card to-emerald-500/5 p-4 shadow-sm space-y-3.5">
+                                <div className="flex items-center gap-3">
+                                  {/* Glowing Circle Health Grade */}
+                                  <div className="h-11 w-11 rounded-full bg-gradient-to-tr from-[#007000] to-emerald-400 text-white flex items-center justify-center font-display text-lg font-black shadow-md border-2 border-white ring-2 ring-emerald-500/20 shrink-0">
+                                    {nutritionGrade.grade}
+                                  </div>
+                                  <div>
+                                    <span className="text-[8px] uppercase tracking-widest text-[#007000] font-black">AI Nutrition Grade</span>
+                                    <h4 className="text-xs font-black text-foreground">{nutritionGrade.tagline}</h4>
+                                  </div>
+                                </div>
 
-                            <div className="border-t border-border/40 pt-2.5 space-y-1.5 text-[10px] text-muted-foreground leading-relaxed">
-                              <span className="text-[8px] uppercase font-extrabold text-[#007000] tracking-wider block">Clinical Diet Guidelines:</span>
-                              <div className="flex gap-2 items-start">
-                                <span className="h-1.5 w-1.5 rounded-full bg-[#007000] shrink-0 mt-1.5" />
-                                <span>This dish has excellent protein density, perfect for lean muscle growth.</span>
+                                <div className="border-t border-border/40 pt-2.5 space-y-1.5 text-[10px] text-muted-foreground leading-relaxed">
+                                  <span className="text-[8px] uppercase font-extrabold text-[#007000] tracking-wider block">Clinical Diet Guidelines:</span>
+                                  {nutritionGrade.guidelines.map((guideline, gIdx) => (
+                                    <div key={gIdx} className="flex gap-2 items-start">
+                                      <span className={`h-1.5 w-1.5 rounded-full shrink-0 mt-1.5 ${gIdx === 1 ? "bg-amber-500" : "bg-[#007000]"}`} />
+                                      <span>{guideline}</span>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                              <div className="flex gap-2 items-start">
-                                <span className="h-1.5 w-1.5 rounded-full bg-amber-550 shrink-0 mt-1.5" />
-                                <span>Limit added table salt—rely on raw fresh herbs and lemon juice for seasoning to support lower blood pressure.</span>
-                              </div>
-                              <div className="flex gap-2 items-start">
-                                <span className="h-1.5 w-1.5 rounded-full bg-[#007000] shrink-0 mt-1.5" />
-                                <span>Pair with steamed brown rice or whole-wheat quinoa to add low-glycemic dietary fiber.</span>
-                              </div>
-                            </div>
-                          </div>
+                            );
+                          })()}
 
                           {/* AI Optimized Ingredients List & Insights */}
                           {displayIngredients.length > 0 && (
