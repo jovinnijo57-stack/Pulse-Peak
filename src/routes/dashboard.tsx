@@ -230,12 +230,12 @@ function Dashboard() {
           <div className="flex items-center justify-between">
             <Dumbbell className="h-5 w-5 text-amber-500" />
             <span className="text-[10px] uppercase tracking-widest text-muted-foreground group-hover:text-primary transition">
-              Train →
+              Gym →
             </span>
           </div>
-          <p className="mt-3 font-display text-lg font-bold leading-tight">GPS Track & Train</p>
+          <p className="mt-3 font-display text-lg font-bold leading-tight">Ai Gym Exercises</p>
           <span className="mt-1 block text-xs text-muted-foreground">
-            Record runs, walks & outdoor tracks
+            Browse exercises & video guides
           </span>
         </Link>
       </div>

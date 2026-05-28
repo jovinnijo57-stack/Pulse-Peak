@@ -2190,12 +2190,13 @@ Return ONLY a valid JSON array of objects, where each object has these exact key
                           </p>
                           <div className="space-y-2">
                             {aiAnalysis.ingredients.map((ing: any, idx: number) => {
-                              const isExpanded = expandedIngredient === ing.name;
+                              const ingName = ing?.name || "";
+                              const isExpanded = expandedIngredient === ingName;
                               
-                              // Find base quantity from original ingredients
-                              const originalIng = selectedRecipe.ingredients.find(
-                                (i) => i.name.toLowerCase() === ing.name.toLowerCase()
-                              );
+                              // Find base quantity from original ingredients safely
+                              const originalIng = ingName
+                                ? selectedRecipe.ingredients.find((i) => i.name.toLowerCase() === ingName.toLowerCase())
+                                : null;
                               const baseQty = originalIng?.qty || 0;
                               const unit = originalIng?.unit || "g";
                               const scaledQty = baseQty ? Math.round(baseQty * portionsMultiplier) : null;
@@ -2207,11 +2208,11 @@ Return ONLY a valid JSON array of objects, where each object has these exact key
                                 >
                                   <button
                                     type="button"
-                                    onClick={() => setExpandedIngredient(isExpanded ? null : ing.name)}
+                                    onClick={() => setExpandedIngredient(isExpanded ? null : ingName)}
                                     className="w-full px-3.5 py-2.5 flex items-center justify-between text-left text-xs font-bold text-foreground hover:bg-muted/40 transition"
                                   >
                                     <div className="flex items-center justify-between w-full pr-3.5">
-                                      <span className="capitalize">{ing.name}</span>
+                                      <span className="capitalize">{ingName || "Ingredient"}</span>
                                       {scaledQty && (
                                         <span className="text-[10px] text-[#007000] font-black">
                                           {scaledQty} {unit}
@@ -2228,15 +2229,15 @@ Return ONLY a valid JSON array of objects, where each object has these exact key
                                     <div className="px-3.5 pb-3 pt-1 text-[11px] text-muted-foreground space-y-2 border-t border-border/20 bg-muted/20 animate-in fade-in duration-150">
                                       <div>
                                         <span className="font-semibold text-emerald-650 block">🌟 Benefit:</span>
-                                        <span>{ing.benefit}</span>
+                                        <span>{ing?.benefit || "Rich in macros."}</span>
                                       </div>
                                       <div>
                                         <span className="font-semibold text-amber-600 block">🛒 Selection:</span>
-                                        <span>{ing.shopping_tip}</span>
+                                        <span>{ing?.shopping_tip || "Select fresh options."}</span>
                                       </div>
                                       <div>
                                         <span className="font-semibold text-[#007000] block">🍳 Culinary Secret:</span>
-                                        <span>{ing.culinary_secret}</span>
+                                        <span>{ing?.culinary_secret || "Cook gently."}</span>
                                       </div>
                                     </div>
                                   )}
