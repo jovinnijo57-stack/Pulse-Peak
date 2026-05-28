@@ -280,7 +280,7 @@ function ExercisePage() {
   const activeFilterCount = [selectedCategory !== "All", selectedEquipment !== "All", selectedTarget !== "All"].filter(Boolean).length;
 
   return (
-    <PhoneShell>
+    <PhoneShell hideNav={selected !== null || showLogs}>
       <style dangerouslySetInnerHTML={{ __html: `
         .volt-scroll::-webkit-scrollbar { display: none; }
         .animate-ex-fade { animation: exFadeIn 0.2s ease forwards; }
@@ -288,378 +288,395 @@ function ExercisePage() {
       `}} />
 
       <div className="relative flex-grow flex flex-col min-h-0 bg-zinc-950 text-white h-full w-full overflow-hidden">
-        {/* ── Header ─────────────────────────────────────────────────────── */}
-        <div className="px-5 pt-6 pb-4 shrink-0">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-[9px] uppercase tracking-[0.2em] text-[#ccff00] font-black">PulsePeak</p>
-              <h1 className="font-display text-2xl font-extrabold tracking-tight text-white mt-0.5">AI Gym</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowLogs(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#ccff00]/10 border border-[#ccff00]/25 text-[9px] font-black text-[#ccff00] uppercase tracking-widest active:scale-95 transition"
-              >
-                <span>View Activity</span>
-              </button>
-              <div className="h-9 w-9 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
-                <Dumbbell className="h-4.5 w-4.5 text-[#ccff00]" />
-              </div>
-            </div>
-          </div>
-
-          {/* Search bar */}
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 pointer-events-none" />
-            <input
-              value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setVisibleCount(12); }}
-              placeholder="Search exercises, muscles, equipment…"
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl pl-10 pr-10 py-3 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#ccff00]/60 transition"
-            />
-            {searchQuery && (
-              <button onClick={() => setSearchQuery("")} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white">
+        {selected ? (
+          <div className="flex flex-col h-full w-full overflow-y-auto volt-scroll animate-ex-fade bg-zinc-950 text-white pb-6">
+            {/* Close */}
+            <div className="px-5 pt-5 pb-3 flex items-center justify-between shrink-0">
+              <button onClick={() => { setSelected(null); synthRef.current?.cancel(); setIsSpeaking(false); setTimerRunning(false); setTimeElapsed(0); }}
+                className="h-9 w-9 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white transition">
                 <X className="h-4 w-4" />
               </button>
-            )}
-          </div>
-        </div>
-
-        {/* ── Category Pills + Filter ─────────────────────────────────────── */}
-        <div className="px-5 shrink-0">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="flex gap-1.5 overflow-x-auto volt-scroll flex-1 pb-1">
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => { setSelectedCategory(cat); setVisibleCount(12); }}
-                  className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider border transition active:scale-95 ${
-                    selectedCategory === cat
-                      ? "bg-[#ccff00] text-black border-[#ccff00]"
-                      : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white"
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
+              <div className="text-center">
+                <p className="text-[8px] uppercase tracking-widest text-zinc-500 font-black">{selected.category}</p>
+              </div>
+              <div className="h-9 w-9 flex items-center justify-center text-xl">
+                {getIcon(selected.category, selected.name)}
+              </div>
             </div>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`shrink-0 h-8 w-8 rounded-xl border flex items-center justify-center transition relative ${showFilters || activeFilterCount > 0 ? "bg-[#ccff00]/10 border-[#ccff00]/40 text-[#ccff00]" : "bg-zinc-900 border-zinc-800 text-zinc-400"}`}
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              {activeFilterCount > 0 && (
-                <span className="absolute -top-1 -right-1 h-4 w-4 bg-[#ccff00] rounded-full text-[7px] font-black text-black flex items-center justify-center">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
-          </div>
 
-          {/* Filter panel */}
-          {showFilters && (
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 mb-3 animate-ex-fade space-y-3">
-              <div className="flex justify-between items-center">
-                <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Filters</p>
-                {activeFilterCount > 0 && (
-                  <button onClick={() => { setSelectedEquipment("All"); setSelectedTarget("All"); }} className="text-[9px] font-bold text-[#ccff00] hover:underline">Reset</button>
+            {/* Media tabs */}
+            <div className="px-5 mb-3 shrink-0">
+              <div className="flex gap-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-1">
+                {(["youtube", "gif"] as const).map((t) => (
+                  <button key={t} onClick={() => setMediaTab(t)}
+                    className={`flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider transition ${mediaTab === t ? "bg-[#ccff00] text-black" : "text-zinc-500 hover:text-zinc-300"}`}>
+                    {t === "youtube" ? "📺 Video Tutorial" : "🎞 GIF Demo"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Media */}
+            <div className="px-5 shrink-0 mb-3">
+              <div className="rounded-2xl overflow-hidden bg-zinc-900 aspect-video flex items-center justify-center border border-zinc-800">
+                {mediaTab === "youtube" ? (
+                  loadingYt ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="h-8 w-8 rounded-full border-2 border-[#ccff00] border-t-transparent animate-spin" />
+                      <p className="text-[10px] text-zinc-500">Finding video tutorial…</p>
+                    </div>
+                  ) : ytVideoId ? (
+                    <iframe
+                      src={`https://www.youtube-nocookie.com/embed/${ytVideoId}?autoplay=0&rel=0`}
+                      allow="accelerometer; clipboard-write; encrypted-media; gyroscope"
+                      className="w-full h-full"
+                      title={selected.name}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-center px-4">
+                      <span className="text-3xl">📺</span>
+                      <p className="text-[10px] text-zinc-500 font-semibold">Video tutorial not found.<br/>Please use the GIF tab above.</p>
+                    </div>
+                  )
+                ) : (
+                  <img
+                    src={`/exercises/${selected.gif_url}`}
+                    alt={selected.name}
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      e.currentTarget.src = "/exercises/images/default.jpg";
+                    }}
+                  />
                 )}
               </div>
-              <div>
-                <p className="text-[8px] uppercase tracking-widest text-zinc-600 font-bold mb-1.5">Equipment</p>
-                <div className="flex flex-wrap gap-1">
-                  {EQUIPMENTS.map((e) => (
-                    <button key={e} onClick={() => setSelectedEquipment(e)}
-                      className={`text-[8px] font-bold px-2 py-1 rounded-lg border transition ${selectedEquipment === e ? "bg-[#ccff00] text-black border-[#ccff00]" : "bg-zinc-950 border-zinc-800 text-zinc-400"}`}>
-                      {e}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="text-[8px] uppercase tracking-widest text-zinc-600 font-bold mb-1.5">Target Muscle</p>
-                <div className="flex flex-wrap gap-1">
-                  {TARGETS.map((t) => (
-                    <button key={t} onClick={() => setSelectedTarget(t)}
-                      className={`text-[8px] font-bold px-2 py-1 rounded-lg border transition ${selectedTarget === t ? "bg-[#ccff00] text-black border-[#ccff00]" : "bg-zinc-950 border-zinc-800 text-zinc-400"}`}>
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
-          )}
-        </div>
 
-        {/* ── Results count ───────────────────────────────────────────────── */}
-        <div className="px-5 mb-3 shrink-0 flex items-center justify-between">
-          <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest">
-            {loading ? "Loading…" : `${filteredExercises.length.toLocaleString()} exercises`}
-          </p>
-          {(searchQuery || selectedCategory !== "All" || selectedEquipment !== "All" || selectedTarget !== "All") && (
-            <button
-              onClick={() => { setSearchQuery(""); setSelectedCategory("All"); setSelectedEquipment("All"); setSelectedTarget("All"); }}
-              className="text-[9px] font-bold text-[#ccff00] hover:underline"
-            >
-              Clear all
-            </button>
-          )}
-        </div>
-
-        {/* ── Exercise Grid ───────────────────────────────────────────────── */}
-        <div className="flex-grow overflow-y-auto volt-scroll px-5 pb-24">
-          {loading ? (
-            <div className="grid grid-cols-2 gap-3">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="bg-zinc-900/60 border border-zinc-800 rounded-2xl aspect-[3/4] animate-pulse" />
-              ))}
-            </div>
-          ) : filteredExercises.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <span className="text-5xl mb-4">🏋️</span>
-              <p className="text-sm font-bold text-zinc-400">No exercises found</p>
-              <p className="text-[10px] text-zinc-600 mt-1">Try a different search or filter</p>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 gap-3">
-                {filteredExercises.slice(0, visibleCount).map((ex) => (
-                  <ExerciseCard key={ex.id} ex={ex} onClick={() => setSelected(ex)} getIcon={getIcon} />
+            {/* Name + tags */}
+            <div className="px-5 mb-4 shrink-0">
+              <h2 className="font-display text-xl font-extrabold capitalize tracking-tight">{selected.name}</h2>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {[selected.equipment, selected.target, selected.body_part].map((tag) => (
+                  <span key={tag} className="text-[8px] font-bold uppercase tracking-wide bg-zinc-900 border border-zinc-800 text-zinc-400 px-2 py-0.5 rounded-md">{tag}</span>
+                ))}
+                {selected.secondary_muscles?.slice(0, 2).map((m) => (
+                  <span key={m} className="text-[8px] font-bold uppercase bg-[#ccff00]/10 text-[#ccff00] px-2 py-0.5 rounded-md">{m}</span>
                 ))}
               </div>
-              {visibleCount < filteredExercises.length && (
-                <button
-                  onClick={() => setVisibleCount((v) => v + 12)}
-                  className="mt-4 w-full py-3 rounded-2xl border border-zinc-800 bg-zinc-900 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-[#ccff00] hover:border-[#ccff00]/30 transition"
-                >
-                  Load More ({filteredExercises.length - visibleCount} remaining)
-                </button>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* ── Exercise Detail Modal ───────────────────────────────────────────── */}
-      {selected && (
-        <div className="absolute inset-0 z-50 flex flex-col bg-zinc-950 text-white overflow-y-auto volt-scroll animate-ex-fade h-full w-full">
-          {/* Close */}
-          <div className="px-5 pt-5 pb-3 flex items-center justify-between shrink-0">
-            <button onClick={() => { setSelected(null); synthRef.current?.cancel(); setIsSpeaking(false); setTimerRunning(false); setTimeElapsed(0); }}
-              className="h-9 w-9 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white transition">
-              <X className="h-4 w-4" />
-            </button>
-            <div className="text-center">
-              <p className="text-[8px] uppercase tracking-widest text-zinc-500 font-black">{selected.category}</p>
             </div>
-            <div className="h-9 w-9 flex items-center justify-center text-xl">
-              {getIcon(selected.category, selected.name)}
-            </div>
-          </div>
 
-          {/* Media */}
-          <div className="px-5 shrink-0 mb-3">
-            <div className="rounded-2xl overflow-hidden bg-zinc-900 aspect-video flex items-center justify-center border border-zinc-800">
-              {loadingYt ? (
-                <div className="flex flex-col items-center gap-2">
-                  <div className="h-8 w-8 rounded-full border-2 border-[#ccff00] border-t-transparent animate-spin" />
-                  <p className="text-[10px] text-zinc-500">Loading media…</p>
-                </div>
-              ) : ytVideoId ? (
-                <iframe
-                  src={`https://www.youtube-nocookie.com/embed/${ytVideoId}?autoplay=0&rel=0`}
-                  allow="accelerometer; clipboard-write; encrypted-media; gyroscope"
-                  className="w-full h-full"
-                  title={selected.name}
-                />
+            {/* Instructions */}
+            <div className="px-5 mb-4 shrink-0">
+              <p className="text-[9px] uppercase tracking-widest font-black text-zinc-500 mb-2.5">How to perform</p>
+              {selected.instruction_steps?.en ? (
+                <ol className="space-y-2">
+                  {selected.instruction_steps.en.map((step, i) => (
+                    <li key={i} className="flex items-start gap-2.5">
+                      <span className="shrink-0 h-5 w-5 rounded-lg bg-[#ccff00]/10 border border-[#ccff00]/20 text-[#ccff00] text-[8px] font-black flex items-center justify-center mt-0.5">{i + 1}</span>
+                      <p className="text-[10px] text-zinc-300 leading-relaxed">{step}</p>
+                    </li>
+                  ))}
+                </ol>
               ) : (
-                <img
-                  src={`/exercises/${selected.gif_url}`}
-                  alt={selected.name}
-                  className="w-full h-full object-contain"
-                  onError={(e) => {
-                    e.currentTarget.src = "/exercises/images/default.jpg";
-                  }}
-                />
+                <p className="text-[10px] text-zinc-400 leading-relaxed">{selected.instructions.en}</p>
               )}
             </div>
-          </div>
 
-          {/* Name + tags */}
-          <div className="px-5 mb-4 shrink-0">
-            <h2 className="font-display text-xl font-extrabold capitalize tracking-tight">{selected.name}</h2>
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {[selected.equipment, selected.target, selected.body_part].map((tag) => (
-                <span key={tag} className="text-[8px] font-bold uppercase tracking-wide bg-zinc-900 border border-zinc-800 text-zinc-400 px-2 py-0.5 rounded-md">{tag}</span>
-              ))}
-              {selected.secondary_muscles?.slice(0, 2).map((m) => (
-                <span key={m} className="text-[8px] font-bold uppercase bg-[#ccff00]/10 text-[#ccff00] px-2 py-0.5 rounded-md">{m}</span>
-              ))}
-            </div>
-          </div>
-
-          {/* Instructions */}
-          <div className="px-5 mb-4 shrink-0">
-            <p className="text-[9px] uppercase tracking-widest font-black text-zinc-500 mb-2.5">How to perform</p>
-            {selected.instruction_steps?.en ? (
-              <ol className="space-y-2">
-                {selected.instruction_steps.en.map((step, i) => (
-                  <li key={i} className="flex items-start gap-2.5">
-                    <span className="shrink-0 h-5 w-5 rounded-lg bg-[#ccff00]/10 border border-[#ccff00]/20 text-[#ccff00] text-[8px] font-black flex items-center justify-center mt-0.5">{i + 1}</span>
-                    <p className="text-[10px] text-zinc-300 leading-relaxed">{step}</p>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="text-[10px] text-zinc-400 leading-relaxed">{selected.instructions.en}</p>
-            )}
-          </div>
-
-          {/* Timer + audio coach */}
-          <div className="px-5 mb-4 shrink-0 grid grid-cols-2 gap-3">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3">
-              <p className="text-[8px] uppercase tracking-widest font-black text-zinc-500 mb-1.5 flex items-center gap-1"><Clock className="h-3 w-3" /> Timer</p>
-              <p className="font-black text-2xl text-white">{fmtTime(timeElapsed)}</p>
-              <div className="flex gap-1.5 mt-2">
-                <button onClick={() => setTimerRunning(!timerRunning)}
-                  className={`flex-1 py-1.5 rounded-xl text-[8px] font-black uppercase flex items-center justify-center gap-1 ${timerRunning ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "bg-[#ccff00] text-black"}`}>
-                  {timerRunning ? <><Pause className="h-3 w-3" /> Pause</> : <><Play className="h-3 w-3 fill-current" /> Start</>}
-                </button>
-                <button onClick={() => { setTimerRunning(false); setTimeElapsed(0); }}
-                  className="px-2 py-1.5 rounded-xl bg-zinc-800 text-zinc-400 hover:text-white transition">
-                  <RotateCcw className="h-3 w-3" />
+            {/* Timer + audio coach */}
+            <div className="px-5 mb-4 shrink-0 grid grid-cols-2 gap-3">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3">
+                <p className="text-[8px] uppercase tracking-widest font-black text-zinc-500 mb-1.5 flex items-center gap-1"><Clock className="h-3 w-3" /> Timer</p>
+                <p className="font-black text-2xl text-white">{fmtTime(timeElapsed)}</p>
+                <div className="flex gap-1.5 mt-2">
+                  <button onClick={() => setTimerRunning(!timerRunning)}
+                    className={`flex-1 py-1.5 rounded-xl text-[8px] font-black uppercase flex items-center justify-center gap-1 ${timerRunning ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "bg-[#ccff00] text-black"}`}>
+                    {timerRunning ? <><Pause className="h-3 w-3" /> Pause</> : <><Play className="h-3 w-3 fill-current" /> Start</>}
+                  </button>
+                  <button onClick={() => { setTimerRunning(false); setTimeElapsed(0); }}
+                    className="px-2 py-1.5 rounded-xl bg-zinc-800 text-zinc-400 hover:text-white transition">
+                    <RotateCcw className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3">
+                <p className="text-[8px] uppercase tracking-widest font-black text-zinc-500 mb-1.5">Audio Coach</p>
+                <p className="text-[10px] text-zinc-400 mb-2">Reads instructions aloud step by step</p>
+                <button onClick={toggleAudioCoach}
+                  className={`w-full py-1.5 rounded-xl text-[8px] font-black uppercase flex items-center justify-center gap-1 border transition ${isSpeaking ? "bg-red-500/15 border-red-500/30 text-red-400" : "bg-zinc-800 border-zinc-700 text-zinc-300 hover:text-white"}`}>
+                  {isSpeaking ? <><VolumeX className="h-3 w-3" /> Stop</> : <><Volume2 className="h-3 w-3" /> Play Coach</>}
                 </button>
               </div>
             </div>
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3">
-              <p className="text-[8px] uppercase tracking-widest font-black text-zinc-500 mb-1.5">Audio Coach</p>
-              <p className="text-[10px] text-zinc-400 mb-2">Reads instructions aloud step by step</p>
-              <button onClick={toggleAudioCoach}
-                className={`w-full py-1.5 rounded-xl text-[8px] font-black uppercase flex items-center justify-center gap-1 border transition ${isSpeaking ? "bg-red-500/15 border-red-500/30 text-red-400" : "bg-zinc-800 border-zinc-700 text-zinc-300 hover:text-white"}`}>
-                {isSpeaking ? <><VolumeX className="h-3 w-3" /> Stop</> : <><Volume2 className="h-3 w-3" /> Play Coach</>}
+
+            {/* Log workout */}
+            <div className="px-5 mb-4 shrink-0">
+              <p className="text-[9px] uppercase tracking-widest font-black text-zinc-500 mb-2.5">Log This Workout</p>
+              <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-2xl p-3 mb-3">
+                <div className="flex-1">
+                  <p className="text-[8px] text-zinc-500 uppercase tracking-wider font-bold mb-1">Duration (minutes)</p>
+                  <input
+                    type="number"
+                    min={1}
+                    max={300}
+                    value={mins}
+                    onChange={(e) => setMins(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm font-black text-white text-center focus:outline-none focus:border-[#ccff00]/50"
+                  />
+                </div>
+                <div className="text-right">
+                  <p className="text-[8px] text-zinc-500 uppercase tracking-wider font-bold">Est. Burn</p>
+                  <p className="font-black text-xl text-[#ccff00]">{Math.round(getKcalPerMin(selected.category) * mins)}</p>
+                  <p className="text-[8px] text-zinc-500">kcal</p>
+                </div>
+              </div>
+              <button
+                onClick={handleLogExercise}
+                className="w-full py-4 rounded-3xl bg-[#ccff00] text-black font-display font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition active:scale-95 shadow-lg shadow-[#ccff00]/20"
+              >
+                <CheckCircle className="h-4 w-4" />
+                Log to Activity
               </button>
             </div>
           </div>
-
-          {/* Log workout */}
-          <div className="px-5 mb-4 shrink-0">
-            <p className="text-[9px] uppercase tracking-widest font-black text-zinc-500 mb-2.5">Log This Workout</p>
-            <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-2xl p-3 mb-3">
-              <div className="flex-1">
-                <p className="text-[8px] text-zinc-500 uppercase tracking-wider font-bold mb-1">Duration (minutes)</p>
-                <input
-                  type="number"
-                  min={1}
-                  max={300}
-                  value={mins}
-                  onChange={(e) => setMins(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm font-black text-white text-center focus:outline-none focus:border-[#ccff00]/50"
-                />
+        ) : showLogs ? (
+          <div className="flex flex-col h-full w-full overflow-y-auto volt-scroll animate-ex-fade bg-zinc-950 text-white pb-6">
+            {/* Header */}
+            <div className="px-5 pt-5 pb-3 flex items-center justify-between shrink-0 border-b border-zinc-900">
+              <button
+                onClick={() => setShowLogs(false)}
+                className="h-9 w-9 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <div className="text-center">
+                <p className="text-[10px] uppercase tracking-widest text-[#ccff00] font-black">Gym Activity History</p>
               </div>
-              <div className="text-right">
-                <p className="text-[8px] text-zinc-500 uppercase tracking-wider font-bold">Est. Burn</p>
-                <p className="font-black text-xl text-[#ccff00]">{Math.round(getKcalPerMin(selected.category) * mins)}</p>
-                <p className="text-[8px] text-zinc-500">kcal</p>
+              {gymLogs.length > 0 ? (
+                <button
+                  onClick={() => {
+                    if (confirm("Are you sure you want to clear your entire gym history?")) {
+                      setGymLogs([]);
+                      localStorage.removeItem("pulsepeak_gym_activity_logs");
+                      toast.success("Gym activity history cleared!");
+                    }
+                  }}
+                  className="text-[9px] font-bold text-red-500 hover:underline uppercase"
+                >
+                  Clear All
+                </button>
+              ) : (
+                <div className="w-12" />
+              )}
+            </div>
+
+            {/* Stats Bar */}
+            <div className="px-5 py-4 shrink-0 grid grid-cols-2 gap-3">
+              <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-3.5 text-center">
+                <p className="text-[8px] uppercase tracking-widest font-black text-zinc-500 mb-1">Workouts Logged</p>
+                <p className="font-black text-xl text-white">{gymLogs.length}</p>
+              </div>
+              <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-3.5 text-center">
+                <p className="text-[8px] uppercase tracking-widest font-black text-zinc-500 mb-1">Est. Gym Burn</p>
+                <p className="font-black text-xl text-[#ccff00]">
+                  {gymLogs.reduce((acc, curr) => acc + (curr.kcal || 0), 0)} <span className="text-[9px] text-zinc-500 font-bold">kcal</span>
+                </p>
               </div>
             </div>
-            <button
-              onClick={handleLogExercise}
-              className="w-full py-4 rounded-3xl bg-[#ccff00] text-black font-display font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition active:scale-95 shadow-lg shadow-[#ccff00]/20"
-            >
-              <CheckCircle className="h-4 w-4" />
-              Log to Activity
-            </button>
-          </div>
-        </div>
-      )}
 
-          {/* ── Gym Activity History Modal ───────────────────────────────────────── */}
-          {showLogs && (
-            <div className="absolute inset-0 z-50 flex flex-col bg-zinc-950 text-white overflow-y-auto volt-scroll animate-ex-fade h-full w-full">
-              {/* Header */}
-              <div className="px-5 pt-5 pb-3 flex items-center justify-between shrink-0 border-b border-zinc-900">
-                <button
-                  onClick={() => setShowLogs(false)}
-                  className="h-9 w-9 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white transition"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-                <div className="text-center">
-                  <p className="text-[10px] uppercase tracking-widest text-[#ccff00] font-black">Gym Activity History</p>
-                </div>
-                {gymLogs.length > 0 ? (
-                  <button
-                    onClick={() => {
-                      if (confirm("Are you sure you want to clear your entire gym history?")) {
-                        setGymLogs([]);
-                        localStorage.removeItem("pulsepeak_gym_activity_logs");
-                        toast.success("Gym activity history cleared!");
-                      }
-                    }}
-                    className="text-[9px] font-bold text-red-500 hover:underline uppercase"
-                  >
-                    Clear All
-                  </button>
-                ) : (
-                  <div className="w-12" />
-                )}
-              </div>
-
-              {/* Stats Bar */}
-              <div className="px-5 py-4 shrink-0 grid grid-cols-2 gap-3">
-                <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-3.5 text-center">
-                  <p className="text-[8px] uppercase tracking-widest font-black text-zinc-500 mb-1">Workouts Logged</p>
-                  <p className="font-black text-xl text-white">{gymLogs.length}</p>
-                </div>
-                <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-3.5 text-center">
-                  <p className="text-[8px] uppercase tracking-widest font-black text-zinc-500 mb-1">Est. Gym Burn</p>
-                  <p className="font-black text-xl text-[#ccff00]">
-                    {gymLogs.reduce((acc, curr) => acc + (curr.kcal || 0), 0)} <span className="text-[9px] text-zinc-500 font-bold">kcal</span>
+            {/* List */}
+            <div className="flex-1 px-5 pb-12 overflow-y-auto volt-scroll">
+              {gymLogs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                  <span className="text-4xl mb-3">📋</span>
+                  <p className="text-xs font-bold text-zinc-400">No gym activities logged yet</p>
+                  <p className="text-[9px] text-zinc-600 mt-1 max-w-[200px] leading-relaxed">
+                    Start an exercise, set your minutes, and log it to build your history!
                   </p>
                 </div>
-              </div>
-
-              {/* List */}
-              <div className="flex-1 px-5 pb-12 overflow-y-auto volt-scroll">
-                {gymLogs.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-center">
-                    <span className="text-4xl mb-3">📋</span>
-                    <p className="text-xs font-bold text-zinc-400">No gym activities logged yet</p>
-                    <p className="text-[9px] text-zinc-600 mt-1 max-w-[200px] leading-relaxed">
-                      Start an exercise, set your minutes, and log it to build your history!
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {gymLogs.map((log) => (
-                      <div
-                        key={log.id}
-                        className="bg-zinc-900/40 border border-zinc-900 hover:border-zinc-800 rounded-2xl p-3.5 flex items-center justify-between"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-xl bg-zinc-900 flex items-center justify-center text-lg shrink-0">
-                            {log.icon || "🏋️"}
-                          </div>
-                          <div>
-                            <h4 className="text-[11px] font-black text-zinc-200 uppercase leading-snug line-clamp-1">
-                              {log.name}
-                            </h4>
-                            <p className="text-[8px] text-zinc-500 font-semibold uppercase mt-0.5 tracking-wider">
-                              {log.category} · {log.date}
-                            </p>
-                          </div>
+              ) : (
+                <div className="space-y-2">
+                  {gymLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="bg-zinc-900/40 border border-zinc-900 hover:border-zinc-800 rounded-2xl p-3.5 flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-xl bg-zinc-900 flex items-center justify-center text-lg shrink-0">
+                          {log.icon || "🏋️"}
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-xs font-black text-[#ccff00] leading-none">+{log.kcal} kcal</p>
-                          <p className="text-[8px] text-zinc-500 mt-1">{log.mins} mins</p>
+                        <div>
+                          <h4 className="text-[11px] font-black text-zinc-200 uppercase leading-snug line-clamp-1">
+                            {log.name}
+                          </h4>
+                          <p className="text-[8px] text-zinc-500 font-semibold uppercase mt-0.5 tracking-wider">
+                            {log.category} · {log.date}
+                          </p>
                         </div>
                       </div>
-                    ))}
+                      <div className="text-right shrink-0">
+                        <p className="text-xs font-black text-[#ccff00] leading-none">+{log.kcal} kcal</p>
+                        <p className="text-[8px] text-zinc-500 mt-1">{log.mins} mins</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* ── Header ─────────────────────────────────────────────────────── */}
+            <div className="px-5 pt-6 pb-4 shrink-0">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-[9px] uppercase tracking-[0.2em] text-[#ccff00] font-black">PulsePeak</p>
+                  <h1 className="font-display text-2xl font-extrabold tracking-tight text-white mt-0.5">AI Gym</h1>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowLogs(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#ccff00]/10 border border-[#ccff00]/25 text-[9px] font-black text-[#ccff00] uppercase tracking-widest active:scale-95 transition"
+                  >
+                    <span>View Activity</span>
+                  </button>
+                  <div className="h-9 w-9 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
+                    <Dumbbell className="h-4.5 w-4.5 text-[#ccff00]" />
                   </div>
+                </div>
+              </div>
+
+              {/* Search bar */}
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 pointer-events-none" />
+                <input
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setVisibleCount(12); }}
+                  placeholder="Search exercises, muscles, equipment…"
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl pl-10 pr-10 py-3 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#ccff00]/60 transition"
+                />
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery("")} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white">
+                    <X className="h-4 w-4" />
+                  </button>
                 )}
               </div>
             </div>
-          )}
-        </PhoneShell>
-      );
+
+            {/* ── Category Pills + Filter ─────────────────────────────────────── */}
+            <div className="px-5 shrink-0">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex gap-1.5 overflow-x-auto volt-scroll flex-1 pb-1">
+                  {CATEGORIES.map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => { setSelectedCategory(cat); setVisibleCount(12); }}
+                      className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider border transition active:scale-95 ${
+                        selectedCategory === cat
+                          ? "bg-[#ccff00] text-black border-[#ccff00]"
+                          : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`shrink-0 h-8 w-8 rounded-xl border flex items-center justify-center transition relative ${showFilters || activeFilterCount > 0 ? "bg-[#ccff00]/10 border-[#ccff00]/40 text-[#ccff00]" : "bg-zinc-900 border-zinc-800 text-zinc-400"}`}
+                >
+                  <SlidersHorizontal className="h-3.5 w-3.5" />
+                  {activeFilterCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 w-4 bg-[#ccff00] rounded-full text-[7px] font-black text-black flex items-center justify-center">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {/* Filter panel */}
+              {showFilters && (
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 mb-3 animate-ex-fade space-y-3">
+                  <div className="flex justify-between items-center">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Filters</p>
+                    {activeFilterCount > 0 && (
+                      <button onClick={() => { setSelectedEquipment("All"); setSelectedTarget("All"); }} className="text-[9px] font-bold text-[#ccff00] hover:underline">Reset</button>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-[8px] uppercase tracking-widest text-zinc-600 font-bold mb-1.5">Equipment</p>
+                    <div className="flex flex-wrap gap-1">
+                      {EQUIPMENTS.map((e) => (
+                        <button key={e} onClick={() => setSelectedEquipment(e)}
+                          className={`text-[8px] font-bold px-2 py-1 rounded-lg border transition ${selectedEquipment === e ? "bg-[#ccff00] text-black border-[#ccff00]" : "bg-zinc-950 border-zinc-800 text-zinc-400"}`}>
+                          {e}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[8px] uppercase tracking-widest text-zinc-600 font-bold mb-1.5">Target Muscle</p>
+                    <div className="flex flex-wrap gap-1">
+                      {TARGETS.map((t) => (
+                        <button key={t} onClick={() => setSelectedTarget(t)}
+                          className={`text-[8px] font-bold px-2 py-1 rounded-lg border transition ${selectedTarget === t ? "bg-[#ccff00] text-black border-[#ccff00]" : "bg-zinc-950 border-zinc-800 text-zinc-400"}`}>
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── Results count ───────────────────────────────────────────────── */}
+            <div className="px-5 mb-3 shrink-0 flex items-center justify-between">
+              <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest">
+                {loading ? "Loading…" : `${filteredExercises.length.toLocaleString()} exercises`}
+              </p>
+              {(searchQuery || selectedCategory !== "All" || selectedEquipment !== "All" || selectedTarget !== "All") && (
+                <button
+                  onClick={() => { setSearchQuery(""); setSelectedCategory("All"); setSelectedEquipment("All"); setSelectedTarget("All"); }}
+                  className="text-[9px] font-bold text-[#ccff00] hover:underline"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+
+            {/* ── Exercise Grid ───────────────────────────────────────────────── */}
+            <div className="flex-grow overflow-y-auto volt-scroll px-5 pb-24">
+              {loading ? (
+                <div className="grid grid-cols-2 gap-3">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="bg-zinc-900/60 border border-zinc-800 rounded-2xl aspect-[3/4] animate-pulse" />
+                  ))}
+                </div>
+              ) : filteredExercises.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                  <span className="text-5xl mb-4">🏋️</span>
+                  <p className="text-sm font-bold text-zinc-400">No exercises found</p>
+                  <p className="text-[10px] text-zinc-600 mt-1">Try a different search or filter</p>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    {filteredExercises.slice(0, visibleCount).map((ex) => (
+                      <ExerciseCard key={ex.id} ex={ex} onClick={() => setSelected(ex)} getIcon={getIcon} />
+                    ))}
+                  </div>
+                  {visibleCount < filteredExercises.length && (
+                    <button
+                      onClick={() => setVisibleCount((v) => v + 12)}
+                      className="mt-4 w-full py-3 rounded-2xl border border-zinc-800 bg-zinc-900 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-[#ccff00] hover:border-[#ccff00]/30 transition"
+                    >
+                      Load More ({filteredExercises.length - visibleCount} remaining)
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </PhoneShell>
+  );
     }
