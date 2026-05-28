@@ -107,13 +107,13 @@ function Progress() {
 
       <div className="pb-20 space-y-4 animate-in fade-in duration-500">
         <Card title="Weight trend" sub={tab === "weekly" ? "Last 7 days" : "Last 4 weeks"}>
-          {activeWeightData.length <= 1 ? (
+          {activeWeightData.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-center px-4 border border-dashed border-border/60 rounded-2xl bg-card/40">
               <p className="text-xs font-semibold text-muted-foreground">
-                Chart building in progress...
+                No weight data yet.
               </p>
               <p className="text-[10px] text-muted-foreground/70 mt-1">
-                Log your weight over multiple days to generate your trend graph.
+                Log your weight in Profile to start tracking your trend.
               </p>
             </div>
           ) : (

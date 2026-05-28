@@ -441,6 +441,6 @@ export function useTotals() {
     },
     burned,
     net: Math.round(eaten.kcal - burned),
-    remaining: Math.round(state.profile.calorieGoal - eaten.kcal + burned),
+    remaining: Math.round(state.profile.calorieGoal - eaten.kcal),
   };
 }
