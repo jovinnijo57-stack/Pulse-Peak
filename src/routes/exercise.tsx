@@ -103,12 +103,20 @@ function ExercisePage() {
   const [showIntro, setShowIntro] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const synthRef = useRef<SpeechSynthesis | null>(null);
+  const [timerWasStarted, setTimerWasStarted] = useState(false);
 
   useEffect(() => {
     if (intro === "true") {
       setShowIntro(true);
     }
   }, [intro]);
+
+  useEffect(() => {
+    if (showIntro) {
+      const t = setTimeout(() => setShowIntro(false), 500);
+      return () => clearTimeout(t);
+    }
+  }, [showIntro]);
 
   // Gym Activity Logs
   const [gymLogs, setGymLogs] = useState<any[]>([]);
@@ -169,7 +177,7 @@ function ExercisePage() {
     const youtubeKey = (import.meta as any).env?.VITE_YOUTUBE_API_KEY;
     if (youtubeKey) {
       setLoadingYt(true);
-      fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${encodeURIComponent(selected.name + " exercise form tutorial")}&type=video&key=${youtubeKey}`)
+      fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${encodeURIComponent(selected.name + " " + selected.target + " proper form execution guide demo")}&type=video&relevanceLanguage=en&key=${youtubeKey}`)
         .then((r) => r.json())
         .then((d) => {
           const id = d.items?.[0]?.id?.videoId;
@@ -239,14 +247,14 @@ function ExercisePage() {
   const handleLogExercise = () => {
     if (!selected) return;
     const kcalPerMin = getKcalPerMin(selected.category);
-    const finalMins = timeElapsed > 0 ? Math.max(1, Math.round(timeElapsed / 60)) : 30;
-    const calculatedKcal = Math.round(kcalPerMin * finalMins);
+    const durationMinutes = timeElapsed / 60;
+    const calculatedKcal = Math.max(1, Math.round(kcalPerMin * durationMinutes));
 
     const newLog = {
       id: crypto.randomUUID(),
       name: selected.name,
       category: selected.category,
-      mins: finalMins,
+      mins: parseFloat(durationMinutes.toFixed(2)),
       kcal: calculatedKcal,
       date: new Date().toLocaleDateString("en-US", {
         month: "short",
@@ -262,8 +270,9 @@ function ExercisePage() {
     setGymLogs(updatedLogs);
     localStorage.setItem("pulsepeak_gym_activity_logs", JSON.stringify(updatedLogs));
 
-    toast.success(`✅ Saved to Gym History — ${finalMins} min · ${calculatedKcal} kcal! (Bypassed Dashboard)`);
+    toast.success(`✅ Saved to Gym History — ${durationMinutes < 1 ? `${timeElapsed}s` : `${durationMinutes.toFixed(1)}m`} · ${calculatedKcal} kcal!`);
     setSelected(null);
+    setTimerWasStarted(false);
   };
 
   const toggleAudioCoach = () => {
@@ -283,8 +292,9 @@ function ExercisePage() {
 
   const activeFilterCount = [selectedCategory !== "All", selectedEquipment !== "All", selectedTarget !== "All"].filter(Boolean).length;
 
+
   return (
-    <PhoneShell hideNav={selected !== null || showLogs || showIntro} bgClass="bg-zinc-950">
+    <PhoneShell hideNav={selected !== null || showLogs} bgClass="bg-zinc-950">
       <style dangerouslySetInnerHTML={{ __html: `
         .volt-scroll::-webkit-scrollbar { display: none; }
         .animate-ex-fade { animation: exFadeIn 0.2s ease forwards; }
@@ -292,43 +302,11 @@ function ExercisePage() {
       `}} />
 
       <div className="relative flex-grow flex flex-col min-h-0 bg-zinc-950 text-white h-full w-full overflow-hidden">
-        {showIntro ? (
-          <div className="absolute inset-0 z-50 flex flex-col items-center justify-end bg-zinc-950 text-white overflow-hidden h-full w-full">
-            {/* Fullscreen Video */}
-            <video
-              src="/red video.mp4"
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-            {/* Dark tint overlay */}
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-[0.5px]" />
-
-            {/* Content overlay */}
-            <div className="relative z-10 w-full px-6 pb-12 pt-20 text-center bg-gradient-to-t from-black via-black/85 to-transparent flex flex-col items-center">
-              <p className="text-[10px] uppercase tracking-[0.25em] text-[#ccff00] font-black">PulsePeak</p>
-              <h2 className="font-display text-3xl font-extrabold tracking-tight text-white mt-1 mb-2">AI Gym Guides</h2>
-              <p className="text-xs text-zinc-400 max-w-[280px] leading-relaxed mb-6 font-medium">
-                Unlock your physical potential with our intelligent motion library. Click below to begin.
-              </p>
-              <button
-                onClick={() => {
-                  setShowIntro(false);
-                  navigate({ search: {} as any });
-                }}
-                className="w-full max-w-[240px] py-4 rounded-full bg-[#ccff00] text-black font-display font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-all shadow-lg shadow-[#ccff00]/20"
-              >
-                Get Started
-              </button>
-            </div>
-          </div>
-        ) : selected ? (
+        {selected ? (
           <div className="flex flex-col h-full w-full overflow-y-auto volt-scroll animate-ex-fade bg-zinc-950 text-white pb-6">
             {/* Close */}
             <div className="px-5 pt-5 pb-3 flex items-center justify-between shrink-0">
-              <button onClick={() => { setSelected(null); synthRef.current?.cancel(); setIsSpeaking(false); setTimerRunning(false); setTimeElapsed(0); }}
+              <button onClick={() => { setSelected(null); synthRef.current?.cancel(); setIsSpeaking(false); setTimerRunning(false); setTimeElapsed(0); setTimerWasStarted(false); }}
                 className="h-9 w-9 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white transition">
                 <X className="h-4 w-4" />
               </button>
@@ -423,11 +401,11 @@ function ExercisePage() {
                 <p className="text-[8px] uppercase tracking-widest font-black text-zinc-500 mb-1.5 flex items-center gap-1"><Clock className="h-3 w-3" /> Timer</p>
                 <p className="font-black text-2xl text-white">{fmtTime(timeElapsed)}</p>
                 <div className="flex gap-1.5 mt-2">
-                  <button onClick={() => setTimerRunning(!timerRunning)}
+                  <button onClick={() => { setTimerRunning(!timerRunning); setTimerWasStarted(true); }}
                     className={`flex-1 py-1.5 rounded-xl text-[8px] font-black uppercase flex items-center justify-center gap-1 ${timerRunning ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "bg-[#ccff00] text-black"}`}>
                     {timerRunning ? <><Pause className="h-3 w-3" /> Pause</> : <><Play className="h-3 w-3 fill-current" /> Start</>}
                   </button>
-                  <button onClick={() => { setTimerRunning(false); setTimeElapsed(0); }}
+                  <button onClick={() => { setTimerRunning(false); setTimeElapsed(0); setTimerWasStarted(false); }}
                     className="px-2 py-1.5 rounded-xl bg-zinc-800 text-zinc-400 hover:text-white transition">
                     <RotateCcw className="h-3 w-3" />
                   </button>
@@ -446,11 +424,22 @@ function ExercisePage() {
             {/* Log workout */}
             <div className="px-5 mb-4 shrink-0">
               <button
+                disabled={!timerWasStarted || timerRunning}
                 onClick={handleLogExercise}
-                className="w-full py-4 rounded-3xl bg-[#ccff00] text-black font-display font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition active:scale-95 shadow-lg shadow-[#ccff00]/20"
+                className={`w-full py-4 rounded-3xl font-display font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition shadow-lg ${
+                  !timerWasStarted
+                    ? "bg-zinc-800 text-zinc-500 border border-zinc-700 cursor-not-allowed shadow-none"
+                    : timerRunning
+                    ? "bg-amber-500/20 text-amber-400 border border-amber-500/30 cursor-not-allowed animate-pulse shadow-none"
+                    : "bg-[#ccff00] text-black hover:scale-[1.02] active:scale-95 cursor-pointer shadow-[#ccff00]/20"
+                }`}
               >
                 <CheckCircle className="h-4 w-4" />
-                Log to Activity
+                {!timerWasStarted
+                  ? "Start Timer to Log"
+                  : timerRunning
+                  ? "Pause Timer to Log"
+                  : `Log to Activity (+${Math.max(1, Math.round(getKcalPerMin(selected.category) * (timeElapsed / 60)))} kcal)`}
               </button>
             </div>
           </div>
@@ -531,7 +520,9 @@ function ExercisePage() {
                       </div>
                       <div className="text-right shrink-0">
                         <p className="text-xs font-black text-[#ccff00] leading-none">+{log.kcal} kcal</p>
-                        <p className="text-[8px] text-zinc-500 mt-1">{log.mins} mins</p>
+                        <p className="text-[8px] text-zinc-500 mt-1">
+                          {log.mins < 1 ? `${Math.round(log.mins * 60)} secs` : `${log.mins.toFixed(1)} mins`}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -561,6 +552,7 @@ function ExercisePage() {
                 </div>
               </div>
 
+
               {/* Search bar */}
               <div className="relative">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 pointer-events-none" />
@@ -571,7 +563,7 @@ function ExercisePage() {
                   className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl pl-10 pr-10 py-3 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#ccff00]/60 transition"
                 />
                 {searchQuery && (
-                  <button onClick={() => setSearchQuery("")} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white">
+                  <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white p-0.5">
                     <X className="h-4 w-4" />
                   </button>
                 )}
