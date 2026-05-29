@@ -177,14 +177,63 @@ function getSunPosition(progress: number) {
   return { x, y };
 }
 
-// ─── Map component (Google Maps or Fallback) ──────────────────────────────────
+// ─── Map component (Google Maps or Free Leaflet Fallback) ──────────────────────
 function TrackMap({ route, center, activityColor }: { route: Coords[]; center: Coords | null; activityColor: string }) {
   const mapRef = useRef<HTMLDivElement>(null);
+  const gmapsKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY;
+
+  // Google Maps Refs
   const mapInstanceRef = useRef<any>(null);
   const polylineRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
-  const gmapsKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY;
 
+  // Leaflet Refs
+  const leafletMapRef = useRef<any>(null);
+  const leafletPolylineRef = useRef<any>(null);
+  const leafletMarkerRef = useRef<any>(null);
+  const [leafletLoaded, setLeafletLoaded] = useState(false);
+
+  // 1. Load Leaflet dynamically if no Google Maps key is present
+  useEffect(() => {
+    if (gmapsKey) return;
+
+    const win = window as any;
+    if (win.L) {
+      setLeafletLoaded(true);
+      return;
+    }
+
+    // Load Leaflet CSS
+    const cssId = "leaflet-css";
+    if (!document.getElementById(cssId)) {
+      const link = document.createElement("link");
+      link.id = cssId;
+      link.rel = "stylesheet";
+      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      document.head.appendChild(link);
+    }
+
+    // Load Leaflet JS
+    const scriptId = "leaflet-js";
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement("script");
+      script.id = scriptId;
+      script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+      script.async = true;
+      script.onload = () => setLeafletLoaded(true);
+      document.head.appendChild(script);
+    } else {
+      const check = setInterval(() => {
+        if (win.L) {
+          clearInterval(check);
+          setLeafletLoaded(true);
+        }
+      }, 200);
+      return () => clearInterval(check);
+    }
+  }, [gmapsKey]);
+
+  // 2. Google Maps Initialization
   useEffect(() => {
     if (!gmapsKey || !mapRef.current) return;
 
@@ -250,9 +299,9 @@ function TrackMap({ route, center, activityColor }: { route: Coords[]; center: C
     }
   }, [gmapsKey, activityColor]);
 
-  // Update polyline + marker when route changes
+  // Update Google Maps components when route changes
   useEffect(() => {
-    if (!mapInstanceRef.current || !polylineRef.current) return;
+    if (!gmapsKey || !mapInstanceRef.current || !polylineRef.current) return;
     const path = route.map((c) => ({ lat: c.lat, lng: c.lng }));
     polylineRef.current.setPath(path);
     if (center) {
@@ -260,49 +309,95 @@ function TrackMap({ route, center, activityColor }: { route: Coords[]; center: C
       markerRef.current?.setPosition(pos);
       mapInstanceRef.current.panTo(pos);
     }
-  }, [route, center]);
+  }, [route, center, gmapsKey]);
 
-  if (!gmapsKey) {
-    // Fallback: dark placeholder map
+  // 3. Leaflet Initialization & Update
+  useEffect(() => {
+    if (gmapsKey || !leafletLoaded || !mapRef.current) return;
+
+    const L = (window as any).L;
+    if (!L) return;
+
+    const initialCenter = center || { lat: 10.4861, lng: 76.2350 }; // default to user's Thrissur location
+
+    if (!leafletMapRef.current) {
+      // Create map
+      const map = L.map(mapRef.current, {
+        center: [initialCenter.lat, initialCenter.lng],
+        zoom: 16,
+        zoomControl: false,
+        attributionControl: false,
+      });
+
+      // Add OpenStreetMap tiles
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+      }).addTo(map);
+
+      // Add Polyline
+      const polyline = L.polyline([], {
+        color: activityColor,
+        weight: 5,
+        opacity: 0.9,
+      }).addTo(map);
+
+      // Add Marker (circle for sleek dot look)
+      const marker = L.circle([initialCenter.lat, initialCenter.lng], {
+        color: "#ffffff",
+        fillColor: activityColor,
+        fillOpacity: 1,
+        radius: 12,
+        weight: 2.5,
+      }).addTo(map);
+
+      leafletMapRef.current = map;
+      leafletPolylineRef.current = polyline;
+      leafletMarkerRef.current = marker;
+    }
+
+    // Update polyline and marker
+    if (leafletMapRef.current) {
+      const path = route.map((c) => [c.lat, c.lng] as [number, number]);
+      leafletPolylineRef.current.setLatLngs(path);
+
+      if (center) {
+        leafletMarkerRef.current.setLatLng([center.lat, center.lng]);
+        leafletMarkerRef.current.setRadius(12); // ensure size is correct
+        leafletMapRef.current.setView([center.lat, center.lng]);
+      }
+    }
+  }, [leafletLoaded, route, center, activityColor, gmapsKey]);
+
+  // Cleanup Leaflet on unmount
+  useEffect(() => {
+    return () => {
+      if (leafletMapRef.current) {
+        try {
+          leafletMapRef.current.remove();
+        } catch (e) {
+          // ignore
+        }
+        leafletMapRef.current = null;
+      }
+    };
+  }, []);
+
+  if (!gmapsKey && !leafletLoaded) {
     return (
       <div className="w-full h-full relative flex flex-col items-center justify-center overflow-hidden rounded-2xl bg-[#0f172a] border border-[#1e3a5f]">
         <div className="absolute inset-0 opacity-10" style={{
           backgroundImage: "linear-gradient(rgba(59,130,246,0.3) 1px,transparent 1px),linear-gradient(90deg,rgba(59,130,246,0.3) 1px,transparent 1px)",
           backgroundSize: "40px 40px",
         }} />
-        {/* Animated pulse dot for current position */}
-        {center && (
-          <div className="relative z-10 flex flex-col items-center gap-2">
-            <div className="relative">
-              <div className="h-6 w-6 rounded-full animate-ping absolute inset-0" style={{ backgroundColor: activityColor, opacity: 0.4 }} />
-              <div className="h-6 w-6 rounded-full border-2 border-white relative z-10" style={{ backgroundColor: activityColor }} />
-            </div>
-            <div className="mt-2 bg-[#1e3a5f]/80 backdrop-blur px-3 py-1.5 rounded-xl border border-[#2d4f7a]">
-              <p className="text-[9px] font-bold text-slate-300 text-center">GPS Active</p>
-              <p className="text-[8px] text-slate-400 text-center font-mono">{center.lat.toFixed(5)}, {center.lng.toFixed(5)}</p>
-            </div>
-          </div>
-        )}
-        {!center && (
-          <div className="flex flex-col items-center gap-2 z-10">
-            <Navigation className="h-7 w-7 text-blue-400 animate-pulse" />
-            <p className="text-[10px] text-slate-400 font-semibold text-center px-4">Acquiring GPS signal...</p>
-            <p className="text-[9px] text-slate-500 text-center px-4 mt-1">
-              Add VITE_GOOGLE_MAPS_API_KEY to .env<br />for live map tracking
-            </p>
-          </div>
-        )}
-        {/* Route as a simple SVG line */}
-        {route.length > 1 && center && (
-          <div className="absolute bottom-4 left-4 right-4 bg-[#1e3a5f]/60 rounded-lg p-2 border border-[#2d4f7a]">
-            <p className="text-[8px] text-blue-300 font-bold uppercase tracking-wider">{route.length} GPS waypoints recorded</p>
-          </div>
-        )}
+        <div className="flex flex-col items-center gap-2 z-10">
+          <Navigation className="h-7 w-7 text-blue-400 animate-pulse" />
+          <p className="text-[10px] text-slate-400 font-semibold text-center px-4">Initializing premium maps...</p>
+        </div>
       </div>
     );
   }
 
-  return <div ref={mapRef} className="w-full h-full rounded-2xl" />;
+  return <div ref={mapRef} className={`w-full h-full rounded-2xl ${!gmapsKey ? "leaflet-dark-mode z-10" : ""}`} />;
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -727,8 +822,14 @@ function TrainPage() {
   // RENDER
   // ════════════════════════════════════════════════════════════════════════════
   return (
-    <PhoneShell hideNav={showIntro || screen !== "hero"} bgClass={showIntro ? "bg-black" : "bg-zinc-950"}>
+    <PhoneShell hideNav={showIntro || screen !== "hero"} bgClass={showIntro ? "bg-black" : "bg-[#060d1f]"}>
       <style dangerouslySetInnerHTML={{ __html: `
+        .leaflet-dark-mode {
+          filter: invert(90%) hue-rotate(200deg) brightness(85%) contrast(95%);
+        }
+        .leaflet-container {
+          background: #060d1f !important;
+        }
         .train-scrollbar::-webkit-scrollbar { display: none; }
         .animate-ex-fade { animation: exFadeIn 0.2s ease forwards; }
         @keyframes exFadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
