@@ -21,6 +21,7 @@ import {
   Clock,
   Activity,
   CheckCircle,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -104,6 +105,30 @@ function fmtPace(distKm: number, secs: number): string {
 function calcCalories(met: number, weightKg: number, durationSecs: number): number {
   const hours = durationSecs / 3600;
   return Math.round(met * weightKg * hours);
+}
+
+// ─── Weather WMO Interpretation Helper ─────────────────────────────────────────
+function getWmoWeather(code: number): { desc: string; icon: string } {
+  if (code === 0) return { desc: "Clear", icon: "☀️" };
+  if (code === 1) return { desc: "Partly Cloudy", icon: "🌤️" };
+  if (code === 2) return { desc: "Partly Cloudy", icon: "⛅" };
+  if (code === 3) return { desc: "Cloudy", icon: "☁️" };
+  if (code >= 45 && code <= 48) return { desc: "Foggy", icon: "🌫️" };
+  if (code >= 51 && code <= 55) return { desc: "Drizzle", icon: "🌧️" };
+  if (code >= 61 && code <= 65) return { desc: "Rainy", icon: "🌧️" };
+  if (code >= 71 && code <= 77) return { desc: "Snowy", icon: "❄️" };
+  if (code >= 80 && code <= 82) return { desc: "Showers", icon: "🌦️" };
+  if (code >= 95 && code <= 99) return { desc: "Thunderstorm", icon: "⛈️" };
+  return { desc: "Clear", icon: "☀️" };
+}
+
+// ─── Sun Arc Position Calculations ────────────────────────────────────────────
+function getSunPosition(progress: number) {
+  const safeProgress = Math.max(0, Math.min(1, progress));
+  const angle = Math.PI - (safeProgress * Math.PI); // 180 (left) to 0 (right)
+  const x = 100 + 80 * Math.cos(angle);
+  const y = 90 - 80 * Math.sin(angle);
+  return { x, y };
 }
 
 // ─── Map component (Google Maps or Fallback) ──────────────────────────────────
@@ -312,6 +337,10 @@ function TrainPage() {
 
   // Weather
   const [weather, setWeather] = useState<{ temp: number; desc: string; wind: number } | null>(null);
+  const [cityName, setCityName] = useState("Current Location");
+  const [weatherDetails, setWeatherDetails] = useState<any>(null);
+  const [showWeatherModal, setShowWeatherModal] = useState(false);
+  const [loadingWeather, setLoadingWeather] = useState(false);
 
   // Auto-pause detection
   const lastMovedRef = useRef<number>(Date.now());
@@ -321,40 +350,123 @@ function TrainPage() {
   useEffect(() => {
     if (screen !== "hero") return;
 
-    const fetchWeather = (lat: number, lon: number) => {
-      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m,weather_code`)
+    const fetchWeather = async (lat: number, lon: number, city?: string) => {
+      if (city) setCityName(city);
+      setLoadingWeather(true);
+      try {
+        const [wRes, aqRes] = await Promise.all([
+          fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,pressure_msl,uv_index&hourly=temperature_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=auto`),
+          fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi`)
+        ]);
+        
+        const wData = await wRes.json();
+        const aqData = await aqRes.json();
+        
+        const current = wData.current;
+        const wInfo = getWmoWeather(current.weather_code);
+        
+        setWeather({
+          temp: Math.round(current.temperature_2m),
+          desc: wInfo.desc,
+          wind: Math.round(current.wind_speed_10m),
+        });
+
+        // Parse sunrise/sunset relative times
+        const formatTimeFromIso = (isoStr: string) => {
+          if (!isoStr) return "--:--";
+          const d = new Date(isoStr);
+          return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+        };
+
+        const dailyList = wData.daily.time.slice(0, 3).map((timeStr: string, idx: number) => {
+          const date = new Date(timeStr);
+          const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+          const dayName = idx === 0 ? "Today" : idx === 1 ? "Tomorrow" : days[date.getDay()];
+          const code = wData.daily.weather_code[idx];
+          const info = getWmoWeather(code);
+          return {
+            day: dayName,
+            desc: info.desc,
+            icon: info.icon,
+            tempMax: Math.round(wData.daily.temperature_2m_max[idx]),
+            tempMin: Math.round(wData.daily.temperature_2m_min[idx]),
+          };
+        });
+
+        const currentHour = new Date().getHours();
+        const hourlyList = wData.hourly.time.slice(currentHour, currentHour + 4).map((timeStr: string, idx: number) => {
+          const date = new Date(timeStr);
+          const formattedHour = `${String(date.getHours()).padStart(2, "0")}:00`;
+          const code = wData.hourly.weather_code[currentHour + idx] ?? 0;
+          const info = getWmoWeather(code);
+          return {
+            time: idx === 0 ? "Now" : formattedHour,
+            temp: Math.round(wData.hourly.temperature_2m[currentHour + idx]),
+            icon: info.icon,
+            windSpeed: Math.round(wData.hourly.wind_speed_10m[currentHour + idx]),
+          };
+        });
+
+        setWeatherDetails({
+          cityName: city || cityName,
+          temp: Math.round(current.temperature_2m),
+          desc: wInfo.desc,
+          wind: Math.round(current.wind_speed_10m),
+          humidity: Math.round(current.relative_humidity_2m),
+          realFeel: Math.round(current.apparent_temperature),
+          chanceOfRain: wData.daily.precipitation_probability_max[0] ?? 0,
+          pressure: Math.round(current.pressure_msl),
+          uvIndex: Math.round(current.uv_index),
+          sunrise: formatTimeFromIso(wData.daily.sunrise[0]),
+          sunset: formatTimeFromIso(wData.daily.sunset[0]),
+          sunriseIso: wData.daily.sunrise[0],
+          sunsetIso: wData.daily.sunset[0],
+          aqi: Math.round(aqData.current?.us_aqi ?? 49),
+          dailyForecast: dailyList,
+          hourlyForecast: hourlyList,
+        });
+
+      } catch (err) {
+        console.error("Failed to fetch weather details:", err);
+      } finally {
+        setLoadingWeather(false);
+      }
+    };
+
+    const fetchCityName = (lat: number, lon: number) => {
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
         .then((r) => r.json())
-        .then((d) => {
-          const wcode = d.current?.weather_code ?? 0;
-          const desc = wcode <= 1 ? "Clear" : wcode <= 3 ? "Partly Cloudy" : wcode <= 48 ? "Foggy" : wcode <= 67 ? "Rainy" : "Stormy";
-          setWeather({
-            temp: Math.round(d.current?.temperature_2m ?? 0),
-            desc,
-            wind: Math.round(d.current?.wind_speed_10m ?? 0),
-          });
+        .then((data) => {
+          const city = data.address?.city || data.address?.town || data.address?.village || data.address?.suburb || "Current Location";
+          setCityName(city);
+          fetchWeather(lat, lon, city);
         })
-        .catch(() => {});
+        .catch(() => {
+          fetchWeather(lat, lon, "Current Location");
+        });
     };
 
     const fallbackIpGeolocation = () => {
       fetch("https://ipapi.co/json/")
         .then((r) => r.json())
         .then((data) => {
+          const city = data.city || "Current Location";
+          setCityName(city);
           if (data.latitude && data.longitude) {
-            fetchWeather(data.latitude, data.longitude);
+            fetchWeather(data.latitude, data.longitude, city);
           } else {
-            fetchWeather(19.0760, 72.8777); // Extreme fallback: Mumbai
+            fetchWeather(19.0760, 72.8777, "Mumbai");
           }
         })
         .catch(() => {
-          fetchWeather(19.0760, 72.8777); // Extreme fallback
+          fetchWeather(19.0760, 72.8777, "Mumbai");
         });
     };
 
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          fetchWeather(pos.coords.latitude, pos.coords.longitude);
+          fetchCityName(pos.coords.latitude, pos.coords.longitude);
         },
         () => {
           fallbackIpGeolocation();
@@ -583,9 +695,12 @@ function TrainPage() {
                     backgroundImage: `linear-gradient(to bottom, rgba(6,13,31,0.15) 0%, rgba(6,13,31,0.97) 90%), url('https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800&auto=format&fit=crop&q=80')`,
               }}
             />
-            {/* Weather badge */}
+            {/* Clickable Weather badge */}
             {weather && (
-              <div className="absolute top-4 right-4 bg-white/10 backdrop-blur-md rounded-2xl px-3 py-2 border border-white/10">
+              <button
+                onClick={() => setShowWeatherModal(true)}
+                className="absolute top-4 right-4 bg-white/10 backdrop-blur-md hover:bg-white/15 active:scale-95 transition rounded-2xl px-3 py-2 border border-white/10 text-left z-20 cursor-pointer"
+              >
                 <div className="flex items-center gap-1.5">
                   <Thermometer className="h-3.5 w-3.5 text-blue-300" />
                   <span className="text-xs font-bold text-white">{weather.temp}°C</span>
@@ -595,7 +710,7 @@ function TrainPage() {
                   <Wind className="h-2.5 w-2.5 text-slate-400" />
                   <span className="text-[8px] text-slate-400">{weather.wind} km/h</span>
                 </div>
-              </div>
+              </button>
             )}
             {/* Hero text */}
             <div className="absolute bottom-5 left-5 right-5">
@@ -941,6 +1056,152 @@ function TrainPage() {
         </div>
       )}
       </>
+      )}
+
+      {/* AccuWeather-style Full Screen Weather Details Overlay */}
+      {showWeatherModal && weatherDetails && (
+        <div className="fixed inset-x-0 bottom-0 top-0 max-w-md mx-auto w-full h-full bg-[#1b253b] text-white z-50 flex flex-col min-h-0 overflow-y-auto train-scrollbar pb-10 font-sans animate-ex-fade">
+          {/* Header */}
+          <div className="px-5 pt-6 pb-4 flex items-center justify-between shrink-0">
+            <button
+              onClick={() => setShowWeatherModal(false)}
+              className="h-9 w-9 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition active:scale-90"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <div className="text-center flex flex-col items-center">
+              <h3 className="font-display text-sm font-extrabold tracking-tight text-white flex items-center gap-1 capitalize">
+                {weatherDetails.cityName}
+              </h3>
+              <p className="text-[8px] text-slate-400 uppercase tracking-widest mt-0.5">PulsePeak Weather</p>
+            </div>
+            <div className="w-9" />
+          </div>
+
+          {/* Current Hero */}
+          <div className="flex flex-col items-center py-6 text-center shrink-0">
+            <h1 className="text-6xl font-display font-black text-white relative pl-2">
+              {weatherDetails.temp}<span className="text-3xl absolute top-1 -right-6 text-slate-300 font-light">°C</span>
+            </h1>
+            <p className="text-base font-semibold text-slate-200 mt-3">{weatherDetails.desc}</p>
+            {/* AQI Badge */}
+            <div className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[9px] font-black uppercase tracking-wider">
+              <span className="text-xs">🍃</span> AQI {weatherDetails.aqi} (Good)
+            </div>
+          </div>
+
+          {/* 3-Day Forecast */}
+          <div className="px-5 mb-4 shrink-0">
+            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-4.5 space-y-3.5">
+              {weatherDetails.dailyForecast.map((day: any, idx: number) => (
+                <div key={idx} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-lg">{day.icon}</span>
+                    <p className="text-xs font-bold text-slate-200">{day.day}</p>
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-medium">{day.desc}</p>
+                  <p className="text-xs font-black text-white">
+                    {day.tempMax}° / <span className="text-slate-400 font-bold">{day.tempMin}°</span>
+                  </p>
+                </div>
+              ))}
+              <div className="pt-2.5 border-t border-slate-800/80">
+                <button className="w-full py-2.5 rounded-2xl bg-white/5 border border-white/5 text-[9px] font-black uppercase tracking-widest text-slate-300 hover:text-white transition active:scale-98">
+                  5-Day Forecast
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Hourly strip */}
+          <div className="px-5 mb-4 shrink-0">
+            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-4">
+              <p className="text-[8px] uppercase tracking-widest font-black text-slate-500 mb-3">Hourly Forecast</p>
+              <div className="grid grid-cols-4 gap-2">
+                {weatherDetails.hourlyForecast.map((hr: any, idx: number) => (
+                  <div key={idx} className="bg-white/5 border border-white/5 rounded-2xl py-3 px-1 text-center flex flex-col items-center">
+                    <p className="text-[9px] text-slate-400 font-bold">{hr.time}</p>
+                    <span className="text-lg my-1.5">{hr.icon}</span>
+                    <p className="text-xs font-black text-white">{hr.temp}°</p>
+                    <p className="text-[8px] text-slate-500 mt-1 font-mono">{hr.windSpeed} km/h</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Sunpath arc */}
+          <div className="px-5 mb-4 shrink-0">
+            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-4.5 text-center flex flex-col items-center relative overflow-hidden">
+              <p className="text-[8px] uppercase tracking-widest font-black text-slate-500 self-start mb-2">Sunrise & Sunset</p>
+              
+              {/* Arc SVG */}
+              <div className="w-full max-w-[200px] h-[100px] relative my-2">
+                <svg className="w-full h-full" viewBox="0 0 200 100">
+                  {/* Horizon line */}
+                  <line x1="0" y1="90" x2="200" y2="90" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+                  {/* Sunpath Dotted Arc */}
+                  <path d="M 10 90 A 80 80 0 0 1 190 90" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" strokeDasharray="3 3" />
+                  {/* Sun dot */}
+                  {(() => {
+                    const now = new Date().getTime();
+                    const rise = weatherDetails.sunriseIso ? new Date(weatherDetails.sunriseIso).getTime() : 0;
+                    const set = weatherDetails.sunsetIso ? new Date(weatherDetails.sunsetIso).getTime() : 0;
+                    let progress = 0.5;
+                    if (rise && set) {
+                      progress = (now - rise) / (set - rise);
+                    }
+                    const pos = getSunPosition(progress);
+                    return (
+                      <>
+                        {/* Glow halo */}
+                        <circle cx={pos.x} cy={pos.y} r="8" fill="rgba(251,191,36,0.3)" className="animate-pulse" />
+                        {/* Yellow sun dot */}
+                        <circle cx={pos.x} cy={pos.y} r="4" fill="#fbbf24" />
+                      </>
+                    );
+                  })()}
+                </svg>
+                {/* Overlay details */}
+                <div className="absolute bottom-1 left-2 flex flex-col items-start">
+                  <p className="text-[7px] text-slate-500 uppercase tracking-widest">Sunrise</p>
+                  <p className="text-[10px] text-slate-300 font-bold mt-0.5">{weatherDetails.sunrise}</p>
+                </div>
+                <div className="absolute bottom-1 right-2 flex flex-col items-end">
+                  <p className="text-[7px] text-slate-500 uppercase tracking-widest">Sunset</p>
+                  <p className="text-[10px] text-slate-300 font-bold mt-0.5">{weatherDetails.sunset}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Metrics Grid */}
+          <div className="px-5 mb-4 shrink-0 grid grid-cols-2 gap-3">
+            {[
+              { label: "Real Feel", value: `${weatherDetails.realFeel}°C`, icon: "🌡️" },
+              { label: "Humidity", value: `${weatherDetails.humidity}%`, icon: "💧" },
+              { label: "Chance of Rain", value: `${weatherDetails.chanceOfRain}%`, icon: "🌧️" },
+              { label: "Pressure", value: `${weatherDetails.pressure} mbar`, icon: "📊" },
+              { label: "Wind Speed", value: `${weatherDetails.wind} km/h`, icon: "💨" },
+              { label: "UV Index", value: String(weatherDetails.uvIndex), icon: "☀️" },
+            ].map((m, idx) => (
+              <div key={idx} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3.5 flex items-center gap-3">
+                <span className="text-xl">{m.icon}</span>
+                <div>
+                  <p className="text-[8px] uppercase tracking-widest font-black text-slate-500 leading-none">{m.label}</p>
+                  <p className="text-sm font-black text-white mt-1 leading-none">{m.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Footer branding */}
+          <div className="text-center py-2 shrink-0">
+            <p className="text-[8px] text-slate-500 font-semibold tracking-wider">
+              Data provided by PulsePeak Weather & Open-Meteo
+            </p>
+          </div>
+        </div>
       )}
     </PhoneShell>
   );
