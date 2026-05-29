@@ -353,14 +353,46 @@ function TrainPage() {
     const fetchWeather = async (lat: number, lon: number, city?: string) => {
       if (city) setCityName(city);
       setLoadingWeather(true);
+      
+      const gatewayKey = (import.meta as any).env?.VITE_WEATHER_API_KEY;
+      const gatewayUrl = `https://pulsepeak-weather.zuplo.app/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,pressure_msl,uv_index&hourly=temperature_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=auto`;
+      const gatewayAqUrl = `https://pulsepeak-weather.zuplo.app/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi`;
+
       try {
-        const [wRes, aqRes] = await Promise.all([
-          fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,pressure_msl,uv_index&hourly=temperature_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=auto`),
-          fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi`)
-        ]);
+        let wRes, aqRes;
         
+        // Attempt using the Zuplo API gateway with authorization
+        try {
+          if (!gatewayKey) {
+            throw new Error("No Zuplo weather API key configured in env");
+          }
+          const headers: HeadersInit = { "Authorization": `Bearer ${gatewayKey}`, "x-api-key": gatewayKey };
+          const [gwRes, gwAqRes] = await Promise.all([
+            fetch(gatewayUrl, { headers }),
+            fetch(gatewayAqUrl, { headers }).catch(() => null)
+          ]);
+
+          
+          if (gwRes.ok) {
+            wRes = gwRes;
+            aqRes = gwAqRes && gwAqRes.ok ? gwAqRes : null;
+          } else {
+            throw new Error(`Zuplo gateway returned status ${gwRes.status}`);
+          }
+        } catch (gwErr) {
+          console.warn("Zuplo gateway fetch failed, falling back to direct Open-Meteo:", gwErr);
+          // Graceful fallback to direct Open-Meteo APIs
+          const [fallbackWRes, fallbackAqRes] = await Promise.all([
+            fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,pressure_msl,uv_index&hourly=temperature_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=auto`),
+            fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi`)
+          ]);
+          wRes = fallbackWRes;
+          aqRes = fallbackAqRes;
+        }
+
         const wData = await wRes.json();
-        const aqData = await aqRes.json();
+        const aqData = aqRes ? await aqRes.json() : null;
+
         
         const current = wData.current;
         const wInfo = getWmoWeather(current.weather_code);
@@ -1144,12 +1176,21 @@ function TrainPage() {
                   <path d="M 10 90 A 80 80 0 0 1 190 90" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" strokeDasharray="3 3" />
                   {/* Sun dot */}
                   {(() => {
-                    const now = new Date().getTime();
-                    const rise = weatherDetails.sunriseIso ? new Date(weatherDetails.sunriseIso).getTime() : 0;
-                    const set = weatherDetails.sunsetIso ? new Date(weatherDetails.sunsetIso).getTime() : 0;
                     let progress = 0.5;
-                    if (rise && set) {
-                      progress = (now - rise) / (set - rise);
+                    try {
+                      const parseToMinutes = (timeStr: string) => {
+                        if (!timeStr) return 0;
+                        const [h, m] = timeStr.split(":").map(Number);
+                        return h * 60 + m;
+                      };
+                      const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+                      const riseMin = parseToMinutes(weatherDetails.sunrise);
+                      const setMin = parseToMinutes(weatherDetails.sunset);
+                      if (setMin > riseMin) {
+                        progress = (nowMin - riseMin) / (setMin - riseMin);
+                      }
+                    } catch (e) {
+                      console.error("Error calculating sun progress:", e);
                     }
                     const pos = getSunPosition(progress);
                     return (
@@ -1161,6 +1202,7 @@ function TrainPage() {
                       </>
                     );
                   })()}
+
                 </svg>
                 {/* Overlay details */}
                 <div className="absolute bottom-1 left-2 flex flex-col items-start">
