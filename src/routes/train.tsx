@@ -238,7 +238,7 @@ function TrackMap({ route, center, activityColor }: { route: Coords[]; center: C
     if (!mapInstanceRef.current) {
       const map = new maplibregl.Map({
         container: mapRef.current,
-        style: `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${maptilerKey}`,
+        style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${maptilerKey}`,
         center: [initialCenter.lng, initialCenter.lat], // Longitude, Latitude ordering
         zoom: 15,
         interactive: true,
@@ -914,7 +914,7 @@ function TrainPage() {
         <>
           {/* ── SCREEN 1: HERO / ACTIVITY PICKER ─────────────────────────────── */}
           {screen === "hero" && (
-            <div className="flex-grow flex flex-col min-h-0 bg-[#060d1f] text-white overflow-y-auto train-scrollbar pb-24">
+            <div className="flex-grow flex flex-col min-h-0 bg-[#060d1f] text-white overflow-y-auto train-scrollbar pb-6">
               {/* Hero Banner */}
               <div className="relative h-64 shrink-0 overflow-hidden">
                 <div
@@ -1235,7 +1235,7 @@ function TrainPage() {
 
       {/* ── SCREEN 3: SESSION SUMMARY ─────────────────────────────────────── */}
       {screen === "summary" && summary && (
-        <div className="flex-grow flex flex-col min-h-screen bg-[#060d1f] text-white overflow-y-auto train-scrollbar pb-24">
+        <div className="flex-grow flex flex-col min-h-screen bg-[#060d1f] text-white overflow-y-auto train-scrollbar pb-8">
           {/* Header */}
           <div className="px-5 pt-5 pb-3">
             <div className="flex items-center gap-2 mb-1">
