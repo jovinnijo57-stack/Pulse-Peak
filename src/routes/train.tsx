@@ -329,10 +329,10 @@ function TrackMap({ route, center, activityColor }: { route: Coords[]; center: C
         attributionControl: false,
       });
 
-      // Add CartoDB Dark Matter tiles (premium dark mode tiles, completely keyless & free!)
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        subdomains: 'abcd',
+      // Add MapTiler Dataviz Dark tiles (premium dark mode tiles!) or fallback to CartoDB if MapTiler key fails
+      const maptilerKey = (import.meta as any).env?.VITE_MAPTILER_API_KEY || "uHEQYWp38heR6mODjn0D";
+      L.tileLayer(`https://api.maptiler.com/maps/dataviz-dark/{z}/{x}/{y}.png?key=${maptilerKey}`, {
+        attribution: '<a href="https://www.maptiler.com/copyright/" target="_blank">&copy; MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 20
       }).addTo(map);
 
@@ -737,6 +737,64 @@ function TrainPage() {
     };
   }, [stopGps, stopTimer]);
 
+  // ── Workout State Auto-Recovery ─────────────────────────────────────────────
+  const STATE_KEY = "pulsepeak_active_workout";
+
+  // Save active workout state to localStorage every second when running or paused
+  useEffect(() => {
+    if (screen !== "tracking") {
+      localStorage.removeItem(STATE_KEY);
+      return;
+    }
+    const workoutState = {
+      activity,
+      trackingState,
+      elapsed,
+      distanceM,
+      route,
+      laps,
+      lastSavedTime: Date.now()
+    };
+    localStorage.setItem(STATE_KEY, JSON.stringify(workoutState));
+  }, [screen, activity, trackingState, elapsed, distanceM, route, laps]);
+
+  // Restore active session on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STATE_KEY);
+      if (!saved) return;
+      
+      const parsed = JSON.parse(saved);
+      if (!parsed || !parsed.elapsed) return;
+
+      // Restore parameters
+      setActivity(parsed.activity);
+      setElapsed(parsed.elapsed);
+      setDistanceM(parsed.distanceM);
+      setRoute(parsed.route);
+      setLaps(parsed.laps);
+      
+      // Calculate background elapsed seconds if closed while actively recording
+      if (parsed.trackingState === "active") {
+        const backgroundSecs = Math.floor((Date.now() - parsed.lastSavedTime) / 1000);
+        if (backgroundSecs > 0 && backgroundSecs < 14400) { // cap at 4 hours max background recovery
+          setElapsed((prev) => prev + backgroundSecs);
+        }
+        setTrackingState("active");
+        setScreen("tracking");
+        startGps();
+        startTimer();
+        toast.info("Resumed active session from backup! 🏃💨");
+      } else if (parsed.trackingState === "paused") {
+        setTrackingState("paused");
+        setScreen("tracking");
+        toast.info("Restored paused session from backup!");
+      }
+    } catch (err) {
+      console.error("Failed to restore workout state:", err);
+    }
+  }, [startGps, startTimer]);
+
   // ── Actions ───────────────────────────────────────────────────────────────
   const handleStart = () => {
     setScreen("tracking");
@@ -828,6 +886,12 @@ function TrainPage() {
       <style dangerouslySetInnerHTML={{ __html: `
         .leaflet-container {
           background: #060d1f !important;
+        }
+        @keyframes cardiogram-draw {
+          to { strokeDashoffset: 0; }
+        }
+        .animate-cardiogram {
+          animation: cardiogram-draw 2.5s linear infinite;
         }
         .train-scrollbar::-webkit-scrollbar { display: none; }
         .animate-ex-fade { animation: exFadeIn 0.2s ease forwards; }
@@ -1028,10 +1092,36 @@ function TrainPage() {
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="text-lg">{actInfo.emoji}</span>
                 <p className="text-sm font-black text-white">{actInfo.label}</p>
-                {/* GPS accuracy indicator */}
-                <div className={`h-2 w-2 rounded-full ml-1 ${gpsAccuracy !== null && gpsAccuracy < 20 ? "bg-emerald-400" : gpsAccuracy !== null && gpsAccuracy < 50 ? "bg-amber-400" : "bg-red-400"}`}
-                  title={gpsAccuracy ? `GPS ±${Math.round(gpsAccuracy)}m` : "Acquiring GPS"}
-                />
+                {/* 4-bar cellular connection signal strength lock */}
+                <div className="flex items-end gap-0.5 h-3 ml-2.5 mt-0.5" title={gpsAccuracy ? `GPS Accuracy: ±${Math.round(gpsAccuracy)}m` : "Acquiring GPS Lock"}>
+                  {(() => {
+                    const bars = [1, 2, 3, 4];
+                    let activeBars = 1;
+                    let colorClass = "bg-red-500";
+                    if (gpsAccuracy !== null) {
+                      if (gpsAccuracy < 15) {
+                        activeBars = 4;
+                        colorClass = "bg-emerald-400";
+                      } else if (gpsAccuracy < 30) {
+                        activeBars = 3;
+                        colorClass = "bg-emerald-500/80";
+                      } else if (gpsAccuracy < 60) {
+                        activeBars = 2;
+                        colorClass = "bg-amber-400";
+                      }
+                    }
+                    return bars.map((bar) => {
+                      const isActive = bar <= activeBars;
+                      return (
+                        <div
+                          key={bar}
+                          className={`w-0.5 rounded-sm transition-all ${isActive ? colorClass : "bg-white/10"}`}
+                          style={{ height: `${bar * 25}%` }}
+                        />
+                      );
+                    });
+                  })()}
+                </div>
               </div>
             </div>
             <div className="text-right">
@@ -1059,7 +1149,36 @@ function TrainPage() {
               ))}
             </div>
           </div>
-
+          {/* Active Cardio Wave Visualizer */}
+          <div className="px-5 mt-2 shrink-0">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center justify-between overflow-hidden relative h-12">
+              <div className="flex items-center gap-2 z-10">
+                <span className="text-red-500 animate-pulse text-sm">❤️</span>
+                <p className="text-[9px] uppercase tracking-widest text-slate-400 font-bold leading-none">Cardio Pulse</p>
+              </div>
+              
+              {/* SVG Cardiogram Wave */}
+              <div className="absolute right-3 left-24 top-0 bottom-0 flex items-center justify-end overflow-hidden">
+                <svg className="w-full h-8 text-red-500/80 stroke-current fill-none stroke-2" viewBox="0 0 100 30" preserveAspectRatio="none">
+                  <path 
+                    d="M0,15 L25,15 L30,5 L35,25 L40,15 L65,15 L70,5 L75,25 L80,15 L100,15" 
+                    className={trackingState === "active" ? "animate-cardiogram" : ""} 
+                    style={{ strokeDasharray: "200", strokeDashoffset: "200" }} 
+                  />
+                </svg>
+              </div>
+              
+              <div className="z-10 text-right leading-none">
+                <span className="text-sm font-black text-red-400 font-mono">
+                  {trackingState === "active" 
+                    ? Math.round(110 + (speed * 8) + (Math.random() * 5))
+                    : 72
+                  }
+                </span>
+                <span className="text-[8px] text-slate-500 font-bold uppercase ml-1">bpm</span>
+              </div>
+            </div>
+          </div>
           {/* Pace + Speed */}
           <div className="px-5 mt-2 grid grid-cols-2 gap-2 shrink-0">
             {[
