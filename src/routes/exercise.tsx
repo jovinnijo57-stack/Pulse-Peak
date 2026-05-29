@@ -3,6 +3,8 @@ import { z } from "zod";
 import { useState, useEffect, useRef, Fragment } from "react";
 import { PhoneShell } from "@/components/PhoneShell";
 import { useStore } from "@/lib/store";
+import { supabase } from "@/lib/supabase";
+
 import {
   Search,
   X,
@@ -160,17 +162,48 @@ function ExercisePage() {
   const [showLogs, setShowLogs] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("pulsepeak_gym_activity_logs");
-      if (stored) {
-        try {
-          setGymLogs(JSON.parse(stored));
-        } catch (e) {
-          console.error(e);
+    async function loadGymLogs() {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        const userId = authData?.user?.id;
+        if (userId) {
+          const { data, error } = await supabase
+            .from("gym_activity_logs")
+            .select("*")
+            .order("created_at", { ascending: false });
+          if (data && !error) {
+            const mapped = data.map((item: any) => ({
+              id: item.id,
+              name: item.exercise_name,
+              category: item.category,
+              mins: Number(item.duration_minutes),
+              kcal: item.calories_burned,
+              date: item.logged_date_str,
+              icon: item.icon || "🏋️",
+            }));
+            setGymLogs(mapped);
+            localStorage.setItem("pulsepeak_gym_activity_logs", JSON.stringify(mapped));
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Error loading gym logs from Supabase:", err);
+      }
+
+      if (typeof window !== "undefined") {
+        const stored = localStorage.getItem("pulsepeak_gym_activity_logs");
+        if (stored) {
+          try {
+            setGymLogs(JSON.parse(stored));
+          } catch (e) {
+            console.error(e);
+          }
         }
       }
     }
+    loadGymLogs();
   }, []);
+
 
   // Timer
   const [timerRunning, setTimerRunning] = useState(false);
@@ -281,7 +314,7 @@ function ExercisePage() {
     );
   });
 
-  const handleLogExercise = () => {
+  const handleLogExercise = async () => {
     if (!selected) return;
     const kcalPerMin = getKcalPerMin(selected.category);
     const durationMinutes = timeElapsed / 60;
@@ -307,10 +340,43 @@ function ExercisePage() {
     setGymLogs(updatedLogs);
     localStorage.setItem("pulsepeak_gym_activity_logs", JSON.stringify(updatedLogs));
 
+    // Save to Supabase (if logged in)
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData?.user?.id;
+      if (userId) {
+        await supabase.from("gym_activity_logs").insert({
+          id: newLog.id,
+          user_id: userId,
+          exercise_name: newLog.name,
+          category: newLog.category,
+          duration_minutes: newLog.mins,
+          calories_burned: newLog.kcal,
+          logged_date_str: newLog.date,
+          icon: newLog.icon,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to save gym log to Supabase:", err);
+    }
+
+    // Also sync the calorie burn to the daily tracker (exercise_logs table) so it shows up in dashboard!
+    try {
+      addExercise({
+        id: selected.id,
+        name: selected.name,
+        kcalPerMin: kcalPerMin,
+        icon: newLog.icon,
+      }, Math.max(1, Math.round(durationMinutes)));
+    } catch (err) {
+      console.error("Failed to add exercise to daily totals:", err);
+    }
+
     toast.success(`✅ Saved to Gym History — ${durationMinutes < 1 ? `${timeElapsed}s` : `${durationMinutes.toFixed(1)}m`} · ${calculatedKcal} kcal!`);
     setSelected(null);
     setTimerWasStarted(false);
   };
+
 
   const toggleAudioCoach = () => {
     if (!synthRef.current || !selected) return;
@@ -576,10 +642,21 @@ function ExercisePage() {
               </div>
               {gymLogs.length > 0 ? (
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (confirm("Are you sure you want to clear your entire gym history?")) {
                       setGymLogs([]);
                       localStorage.removeItem("pulsepeak_gym_activity_logs");
+                      
+                      try {
+                        const { data: authData } = await supabase.auth.getUser();
+                        const userId = authData?.user?.id;
+                        if (userId) {
+                          await supabase.from("gym_activity_logs").delete().eq("user_id", userId);
+                        }
+                      } catch (err) {
+                        console.error("Failed to clear gym logs from Supabase:", err);
+                      }
+                      
                       toast.success("Gym activity history cleared!");
                     }
                   }}
@@ -588,6 +665,7 @@ function ExercisePage() {
                   Clear All
                 </button>
               ) : (
+
                 <div className="w-12" />
               )}
             </div>

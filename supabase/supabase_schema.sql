@@ -271,3 +271,36 @@ BEGIN
   RETURN EXISTS(SELECT 1 FROM public.profiles WHERE phone = phone_to_check);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- 9. Gym Activity Logs Table (for AI Gym page history)
+CREATE TABLE IF NOT EXISTS public.gym_activity_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users ON DELETE CASCADE NOT NULL,
+  exercise_name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  duration_minutes NUMERIC NOT NULL,
+  calories_burned INTEGER NOT NULL,
+  logged_date_str TEXT NOT NULL,
+  icon TEXT DEFAULT '🏋️',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable Row-Level Security (RLS)
+ALTER TABLE public.gym_activity_logs ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist to avoid creation errors
+DROP POLICY IF EXISTS "Users can view own gym logs" ON public.gym_activity_logs;
+DROP POLICY IF EXISTS "Users can insert own gym logs" ON public.gym_activity_logs;
+DROP POLICY IF EXISTS "Users can delete own gym logs" ON public.gym_activity_logs;
+
+-- Policies for authenticated access
+CREATE POLICY "Users can view own gym logs" ON public.gym_activity_logs
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own gym logs" ON public.gym_activity_logs
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own gym logs" ON public.gym_activity_logs
+  FOR DELETE USING (auth.uid() = user_id);
+
