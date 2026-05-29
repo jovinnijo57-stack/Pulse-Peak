@@ -67,6 +67,9 @@ const ACTIVITIES: { type: ActivityType; label: string; emoji: string; color: str
   { type: "hiking",   label: "Hiking",   emoji: "🥾", color: "#ef4444", met: 6.0,  desc: "Explore trails & elevation" },
 ];
 
+const maptilerKey = "uHEQYWp38heR6mODjn0D";
+
+
 // ─── Haversine Distance (meters) ─────────────────────────────────────────────
 function haversine(a: Coords, b: Coords): number {
   const R = 6371000;
@@ -177,26 +180,14 @@ function getSunPosition(progress: number) {
   return { x, y };
 }
 
-// ─── Map component (Google Maps or Free Leaflet Fallback) ──────────────────────
+// ─── Map component (Premium MapLibre GL JS + MapTiler Free Key) ───────────────
 function TrackMap({ route, center, activityColor }: { route: Coords[]; center: Coords | null; activityColor: string }) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const gmapsKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY;
-
-  // Google Maps Refs
   const mapInstanceRef = useRef<any>(null);
-  const polylineRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
-
-  // Leaflet Refs
-  const leafletMapRef = useRef<any>(null);
-  const leafletPolylineRef = useRef<any>(null);
-  const leafletMarkerRef = useRef<any>(null);
-  const [leafletLoaded, setLeafletLoaded] = useState(false);
-
-  // 1. Load Leaflet dynamically if no Google Maps key is present
   const [maplibreLoaded, setMaplibreLoaded] = useState(false);
 
-  // 1. Load MapLibre GL JS dynamically
+  // 1. Load MapLibre GL JS & CSS dynamically
   useEffect(() => {
     const win = window as any;
     if (win.maplibregl) {
@@ -311,10 +302,6 @@ function TrackMap({ route, center, activityColor }: { route: Coords[]; center: C
       mapInstanceRef.current = map;
       markerRef.current = marker;
     }
-
-    return () => {
-      // Cleanup handled on unmount
-    };
   }, [maplibreLoaded, activityColor]);
 
   // 3. Update route polyline, location marker and zoom/pan center
@@ -361,12 +348,12 @@ function TrackMap({ route, center, activityColor }: { route: Coords[]; center: C
         } catch (e) {
           // ignore
         }
-        leafletMapRef.current = null;
+        mapInstanceRef.current = null;
       }
     };
   }, []);
 
-  if (!gmapsKey && !leafletLoaded) {
+  if (!maplibreLoaded) {
     return (
       <div className="w-full h-full relative flex flex-col items-center justify-center overflow-hidden rounded-2xl bg-[#0f172a] border border-[#1e3a5f]">
         <div className="absolute inset-0 opacity-10" style={{
@@ -383,6 +370,7 @@ function TrackMap({ route, center, activityColor }: { route: Coords[]; center: C
 
   return <div ref={mapRef} className="w-full h-full rounded-2xl z-10" />;
 }
+
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 function TrainPage() {
@@ -1066,7 +1054,7 @@ function TrainPage() {
 
       {/* ── SCREEN 2: ACTIVE TRACKING ─────────────────────────────────────── */}
       {screen === "tracking" && (
-        <div className="flex-grow flex flex-col min-h-0 bg-[#060d1f] text-white">
+        <div className="flex flex-col h-dvh w-full bg-[#060d1f] text-white overflow-hidden pb-4">
           {/* Header */}
           <div className="px-5 pt-4 pb-3 flex items-center justify-between shrink-0">
             <div>
@@ -1203,7 +1191,7 @@ function TrainPage() {
           )}
 
           {/* Controls */}
-          <div className="px-5 py-4 flex items-center justify-center gap-5 shrink-0">
+          <div className="px-5 pt-2 pb-8 flex items-center justify-center gap-6 shrink-0 bg-[#060d1f]">
             {/* Flag lap */}
             <button
               onClick={handleFlag}
@@ -1247,7 +1235,7 @@ function TrainPage() {
 
       {/* ── SCREEN 3: SESSION SUMMARY ─────────────────────────────────────── */}
       {screen === "summary" && summary && (
-        <div className="flex-grow flex flex-col min-h-0 bg-[#060d1f] text-white overflow-y-auto train-scrollbar pb-24">
+        <div className="flex-grow flex flex-col min-h-screen bg-[#060d1f] text-white overflow-y-auto train-scrollbar pb-24">
           {/* Header */}
           <div className="px-5 pt-5 pb-3">
             <div className="flex items-center gap-2 mb-1">
