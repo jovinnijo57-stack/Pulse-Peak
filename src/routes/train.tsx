@@ -194,188 +194,170 @@ function TrackMap({ route, center, activityColor }: { route: Coords[]; center: C
   const [leafletLoaded, setLeafletLoaded] = useState(false);
 
   // 1. Load Leaflet dynamically if no Google Maps key is present
-  useEffect(() => {
-    if (gmapsKey) return;
+  const [maplibreLoaded, setMaplibreLoaded] = useState(false);
 
+  // 1. Load MapLibre GL JS dynamically
+  useEffect(() => {
     const win = window as any;
-    if (win.L) {
-      setLeafletLoaded(true);
+    if (win.maplibregl) {
+      setMaplibreLoaded(true);
       return;
     }
 
-    // Load Leaflet CSS
-    const cssId = "leaflet-css";
+    // Load MapLibre CSS
+    const cssId = "maplibre-css";
     if (!document.getElementById(cssId)) {
       const link = document.createElement("link");
       link.id = cssId;
       link.rel = "stylesheet";
-      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      link.href = "https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css";
       document.head.appendChild(link);
     }
 
-    // Load Leaflet JS
-    const scriptId = "leaflet-js";
+    // Load MapLibre JS
+    const scriptId = "maplibre-js";
     if (!document.getElementById(scriptId)) {
       const script = document.createElement("script");
       script.id = scriptId;
-      script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+      script.src = "https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js";
       script.async = true;
-      script.onload = () => setLeafletLoaded(true);
+      script.onload = () => setMaplibreLoaded(true);
       document.head.appendChild(script);
     } else {
       const check = setInterval(() => {
-        if (win.L) {
+        if (win.maplibregl) {
           clearInterval(check);
-          setLeafletLoaded(true);
+          setMaplibreLoaded(true);
         }
       }, 200);
       return () => clearInterval(check);
     }
-  }, [gmapsKey]);
+  }, []);
 
-  // 2. Google Maps Initialization
+  // 2. Initialize MapLibre GL Map
   useEffect(() => {
-    if (!gmapsKey || !mapRef.current) return;
+    if (!maplibreLoaded || !mapRef.current) return;
 
     const win = window as any;
-    const loadMap = () => {
-      if (!mapRef.current) return;
-      const initialCenter = center || { lat: 20.5937, lng: 78.9629 };
-      const map = new win.google.maps.Map(mapRef.current, {
-        center: { lat: initialCenter.lat, lng: initialCenter.lng },
-        zoom: 16,
-        disableDefaultUI: true,
-        styles: [
-          { elementType: "geometry", stylers: [{ color: "#0f172a" }] },
-          { elementType: "labels.text.fill", stylers: [{ color: "#94a3b8" }] },
-          { elementType: "labels.text.stroke", stylers: [{ color: "#0f172a" }] },
-          { featureType: "road", elementType: "geometry", stylers: [{ color: "#1e3a5f" }] },
-          { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#172d4a" }] },
-          { featureType: "water", elementType: "geometry", stylers: [{ color: "#0f2846" }] },
-          { featureType: "poi", stylers: [{ visibility: "off" }] },
-          { featureType: "transit", stylers: [{ visibility: "off" }] },
-        ],
-      });
-      mapInstanceRef.current = map;
+    const maplibregl = win.maplibregl;
+    if (!maplibregl) return;
 
-      polylineRef.current = new win.google.maps.Polyline({
-        path: [],
-        geodesic: true,
-        strokeColor: activityColor,
-        strokeOpacity: 1.0,
-        strokeWeight: 5,
-        map,
-      });
+    const initialCenter = center ? { lat: center.lat, lng: center.lng } : { lat: 10.4861, lng: 76.2350 }; // Thrissur, Kerala
 
-      markerRef.current = new win.google.maps.Marker({
-        map,
-        icon: {
-          path: win.google.maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: activityColor,
-          fillOpacity: 1,
-          strokeColor: "#ffffff",
-          strokeWeight: 2.5,
-        },
-      });
-    };
-
-    if (win.google?.maps) {
-      loadMap();
-    } else {
-      const scriptId = "gmaps-api";
-      if (!document.getElementById(scriptId)) {
-        const script = document.createElement("script");
-        script.id = scriptId;
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${gmapsKey}`;
-        script.async = true;
-        script.onload = loadMap;
-        document.head.appendChild(script);
-      } else {
-        const check = setInterval(() => {
-          if (win.google?.maps) { clearInterval(check); loadMap(); }
-        }, 200);
-      }
-    }
-  }, [gmapsKey, activityColor]);
-
-  // Update Google Maps components when route changes
-  useEffect(() => {
-    if (!gmapsKey || !mapInstanceRef.current || !polylineRef.current) return;
-    const path = route.map((c) => ({ lat: c.lat, lng: c.lng }));
-    polylineRef.current.setPath(path);
-    if (center) {
-      const pos = { lat: center.lat, lng: center.lng };
-      markerRef.current?.setPosition(pos);
-      mapInstanceRef.current.panTo(pos);
-    }
-  }, [route, center, gmapsKey]);
-
-  // 3. Leaflet Initialization & Update
-  useEffect(() => {
-    if (gmapsKey || !leafletLoaded || !mapRef.current) return;
-
-    const L = (window as any).L;
-    if (!L) return;
-
-    const initialCenter = center || { lat: 10.4861, lng: 76.2350 }; // default to user's Thrissur location
-
-    if (!leafletMapRef.current) {
-      // Create map
-      const map = L.map(mapRef.current, {
-        center: [initialCenter.lat, initialCenter.lng],
-        zoom: 16,
-        zoomControl: false,
+    if (!mapInstanceRef.current) {
+      const map = new maplibregl.Map({
+        container: mapRef.current,
+        style: `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${maptilerKey}`,
+        center: [initialCenter.lng, initialCenter.lat], // Longitude, Latitude ordering
+        zoom: 15,
+        interactive: true,
         attributionControl: false,
       });
 
-      // Add MapTiler Dataviz Dark tiles (premium dark mode tiles!) or fallback to CartoDB if MapTiler key fails
-      const maptilerKey = (import.meta as any).env?.VITE_MAPTILER_API_KEY || "uHEQYWp38heR6mODjn0D";
-      L.tileLayer(`https://api.maptiler.com/maps/dataviz-dark/{z}/{x}/{y}.png?key=${maptilerKey}`, {
-        attribution: '<a href="https://www.maptiler.com/copyright/" target="_blank">&copy; MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 20
-      }).addTo(map);
+      // Create pulse dot DOM element for marker
+      const el = document.createElement("div");
+      el.className = "relative flex items-center justify-center";
+      el.style.width = "20px";
+      el.style.height = "20px";
 
-      // Add Polyline
-      const polyline = L.polyline([], {
-        color: activityColor,
-        weight: 5,
-        opacity: 0.9,
-      }).addTo(map);
+      const ping = document.createElement("div");
+      ping.className = "animate-ping absolute inline-flex h-full w-full rounded-full opacity-60";
+      ping.style.backgroundColor = activityColor;
 
-      // Add Marker (circle for sleek dot look)
-      const marker = L.circle([initialCenter.lat, initialCenter.lng], {
-        color: "#ffffff",
-        fillColor: activityColor,
-        fillOpacity: 1,
-        radius: 12,
-        weight: 2.5,
-      }).addTo(map);
+      const dot = document.createElement("div");
+      dot.className = "relative inline-flex rounded-full border-2 border-white";
+      dot.style.backgroundColor = activityColor;
+      dot.style.width = "12px";
+      dot.style.height = "12px";
 
-      leafletMapRef.current = map;
-      leafletPolylineRef.current = polyline;
-      leafletMarkerRef.current = marker;
+      el.appendChild(ping);
+      el.appendChild(dot);
+
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([initialCenter.lng, initialCenter.lat])
+        .addTo(map);
+
+      map.on("load", () => {
+        // Add geojson source for route line
+        map.addSource("route-source", {
+          type: "geojson",
+          data: {
+            type: "Feature",
+            properties: {},
+            geometry: {
+              type: "LineString",
+              coordinates: route.map((c) => [c.lng, c.lat]),
+            },
+          },
+        });
+
+        // Add line layer
+        map.addLayer({
+          id: "route-layer",
+          type: "line",
+          source: "route-source",
+          layout: {
+            "line-join": "round",
+            "line-cap": "round",
+          },
+          paint: {
+            "line-color": activityColor,
+            "line-width": 6,
+            "line-opacity": 0.9,
+          },
+        });
+      });
+
+      mapInstanceRef.current = map;
+      markerRef.current = marker;
     }
 
-    // Update polyline and marker
-    if (leafletMapRef.current) {
-      const path = route.map((c) => [c.lat, c.lng] as [number, number]);
-      leafletPolylineRef.current.setLatLngs(path);
+    return () => {
+      // Cleanup handled on unmount
+    };
+  }, [maplibreLoaded, activityColor]);
 
-      if (center) {
-        leafletMarkerRef.current.setLatLng([center.lat, center.lng]);
-        leafletMarkerRef.current.setRadius(12); // ensure size is correct
-        leafletMapRef.current.setView([center.lat, center.lng]);
-      }
+  // 3. Update route polyline, location marker and zoom/pan center
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    // Update marker location
+    if (markerRef.current && center) {
+      markerRef.current.setLngLat([center.lng, center.lat]);
     }
-  }, [leafletLoaded, route, center, activityColor, gmapsKey]);
 
-  // Cleanup Leaflet on unmount
+    // Update center pan dynamically using MapLibre GL hardware-accelerated flyTo
+    if (center) {
+      map.flyTo({
+        center: [center.lng, center.lat],
+        zoom: 15,
+        essential: true,
+        speed: 1.2,
+      });
+    }
+
+    // Update GeoJSON route source data
+    const source = map.getSource("route-source");
+    if (source) {
+      const coords = route.map((c) => [c.lng, c.lat]);
+      source.setData({
+        type: "Feature",
+        properties: {},
+        geometry: {
+          type: "LineString",
+          coordinates: coords,
+        },
+      });
+    }
+  }, [route, center]);
+
+  // Clean map on component destroy
   useEffect(() => {
     return () => {
-      if (leafletMapRef.current) {
+      if (mapInstanceRef.current) {
         try {
-          leafletMapRef.current.remove();
+          mapInstanceRef.current.remove();
         } catch (e) {
           // ignore
         }
