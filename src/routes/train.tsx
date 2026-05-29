@@ -239,6 +239,46 @@ function TrainPage() {
   const { state, addExercise } = useStore();
   const { profile } = state;
 
+  const [showIntro, setShowIntro] = useState(true);
+  const [showButton, setShowButton] = useState(false);
+
+  useEffect(() => {
+    if (showIntro) {
+      setShowButton(false);
+      const t = setTimeout(() => setShowButton(true), 500);
+      return () => clearTimeout(t);
+    } else {
+      setShowButton(false);
+    }
+  }, [showIntro]);
+
+  // Robust welcome video callback ref to ensure instant muted autoplay with fallback triggers
+  const welcomeVideoRefCallback = (video: HTMLVideoElement | null) => {
+    if (video) {
+      video.defaultMuted = true;
+      video.muted = true;
+      video.playsInline = true;
+      video.setAttribute("playsinline", "true");
+      video.setAttribute("webkit-playsinline", "true");
+      
+      const playVideo = () => {
+        video.play().catch(() => {});
+      };
+      
+      video.load();
+      playVideo();
+      
+      // Safe fallback event listeners for strict mobile browser autoplay blocks
+      const playOnInteraction = () => {
+        playVideo();
+        document.removeEventListener("touchstart", playOnInteraction);
+        document.removeEventListener("click", playOnInteraction);
+      };
+      document.addEventListener("touchstart", playOnInteraction, { passive: true });
+      document.addEventListener("click", playOnInteraction, { passive: true });
+    }
+  };
+
   const [screen, setScreen] = useState<Screen>("hero");
   const [activity, setActivity] = useState<ActivityType>("running");
   const [trackingState, setTrackingState] = useState<TrackingState>("idle");
@@ -450,9 +490,11 @@ function TrainPage() {
   // RENDER
   // ════════════════════════════════════════════════════════════════════════════
   return (
-    <PhoneShell bgClass="bg-zinc-950">
+    <PhoneShell hideNav={showIntro || screen !== "hero"} bgClass={showIntro ? "bg-black" : "bg-zinc-950"}>
       <style dangerouslySetInnerHTML={{ __html: `
         .train-scrollbar::-webkit-scrollbar { display: none; }
+        .animate-ex-fade { animation: exFadeIn 0.2s ease forwards; }
+        @keyframes exFadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
         @keyframes pulse-ring {
           0% { transform: scale(1); opacity: 0.8; }
           70% { transform: scale(1.8); opacity: 0; }
@@ -469,15 +511,46 @@ function TrainPage() {
         }
       `}} />
 
-      {/* ── SCREEN 1: HERO / ACTIVITY PICKER ─────────────────────────────── */}
-      {screen === "hero" && (
-        <div className="flex-grow flex flex-col min-h-0 bg-[#060d1f] text-white overflow-y-auto train-scrollbar pb-24">
-          {/* Hero Banner */}
-          <div className="relative h-64 shrink-0 overflow-hidden">
-            <div
-              className="absolute inset-0 bg-cover bg-center"
-              style={{
-                backgroundImage: `linear-gradient(to bottom, rgba(6,13,31,0.15) 0%, rgba(6,13,31,0.97) 90%), url('https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800&auto=format&fit=crop&q=80')`,
+      {showIntro ? (
+        <div className="relative w-full h-full min-h-dvh flex flex-col items-center justify-end overflow-hidden bg-black">
+          <video
+            ref={welcomeVideoRefCallback}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            className="absolute inset-0 w-full h-full object-cover"
+          >
+            <source src="/yellow_video.mp4?v=202605291110" type="video/mp4" />
+          </video>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
+          {showButton && (
+            <div className="relative z-10 flex flex-col items-center gap-3 pb-16 px-6 w-full animate-ex-fade">
+              <button
+                onClick={() => setShowIntro(false)}
+                className="px-8 py-3.5 rounded-full bg-[#3b82f6] text-white font-display font-black text-xs uppercase tracking-widest shadow-[0_0_25px_rgba(59,130,246,0.35)] active:scale-95 transition"
+              >
+                Get Started
+              </button>
+              <div className="text-center">
+                <p className="text-white font-display font-black text-base uppercase tracking-tight">AI Gym Guides</p>
+                <p className="text-white/70 text-[11px] font-semibold tracking-wide mt-0.5">Train your body. Upgrade your mind</p>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* ── SCREEN 1: HERO / ACTIVITY PICKER ─────────────────────────────── */}
+          {screen === "hero" && (
+            <div className="flex-grow flex flex-col min-h-0 bg-[#060d1f] text-white overflow-y-auto train-scrollbar pb-24">
+              {/* Hero Banner */}
+              <div className="relative h-64 shrink-0 overflow-hidden">
+                <div
+                  className="absolute inset-0 bg-cover bg-center"
+                  style={{
+                    backgroundImage: `linear-gradient(to bottom, rgba(6,13,31,0.15) 0%, rgba(6,13,31,0.97) 90%), url('https://images.unsplash.com/photo-1571008887538-b36bb32f4571?w=800&auto=format&fit=crop&q=80')`,
               }}
             />
             {/* Weather badge */}
@@ -836,6 +909,8 @@ function TrainPage() {
             </button>
           </div>
         </div>
+      )}
+      </>
       )}
     </PhoneShell>
   );
