@@ -253,31 +253,33 @@ function TrainPage() {
   }, [showIntro]);
 
   // Robust welcome video callback ref to ensure instant muted autoplay with fallback triggers
-  const welcomeVideoRefCallback = (video: HTMLVideoElement | null) => {
-    if (video) {
-      video.defaultMuted = true;
-      video.muted = true;
-      video.playsInline = true;
-      video.setAttribute("playsinline", "true");
-      video.setAttribute("webkit-playsinline", "true");
-      
-      const playVideo = () => {
-        video.play().catch(() => {});
-      };
-      
-      video.load();
+  const welcomeVideoRefCallback = useCallback((video: HTMLVideoElement | null) => {
+    if (!video) return;
+    if (video.dataset.initialized === "true") return;
+    
+    video.dataset.initialized = "true";
+    video.defaultMuted = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.setAttribute("playsinline", "true");
+    video.setAttribute("webkit-playsinline", "true");
+    
+    const playVideo = () => {
+      video.play().catch(() => {});
+    };
+    
+    video.load();
+    playVideo();
+    
+    // Safe fallback event listeners for strict mobile browser autoplay blocks
+    const playOnInteraction = () => {
       playVideo();
-      
-      // Safe fallback event listeners for strict mobile browser autoplay blocks
-      const playOnInteraction = () => {
-        playVideo();
-        document.removeEventListener("touchstart", playOnInteraction);
-        document.removeEventListener("click", playOnInteraction);
-      };
-      document.addEventListener("touchstart", playOnInteraction, { passive: true });
-      document.addEventListener("click", playOnInteraction, { passive: true });
-    }
-  };
+      document.removeEventListener("touchstart", playOnInteraction);
+      document.removeEventListener("click", playOnInteraction);
+    };
+    document.addEventListener("touchstart", playOnInteraction, { passive: true });
+    document.addEventListener("click", playOnInteraction, { passive: true });
+  }, []);
 
   const [screen, setScreen] = useState<Screen>("hero");
   const [activity, setActivity] = useState<ActivityType>("running");
@@ -526,17 +528,13 @@ function TrainPage() {
           </video>
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
           {showButton && (
-            <div className="relative z-10 flex flex-col items-center gap-3 pb-16 px-6 w-full animate-ex-fade">
+            <div className="relative z-10 flex flex-col items-center pb-8 px-6 w-full animate-ex-fade">
               <button
                 onClick={() => setShowIntro(false)}
                 className="px-8 py-3.5 rounded-full bg-[#3b82f6] text-white font-display font-black text-xs uppercase tracking-widest shadow-[0_0_25px_rgba(59,130,246,0.35)] active:scale-95 transition"
               >
                 Get Started
               </button>
-              <div className="text-center">
-                <p className="text-white font-display font-black text-base uppercase tracking-tight">AI Gym Guides</p>
-                <p className="text-white/70 text-[11px] font-semibold tracking-wide mt-0.5">Train your body. Upgrade your mind</p>
-              </div>
             </div>
           )}
         </div>
