@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { PhoneShell } from "@/components/PhoneShell";
 import { useStore } from "@/lib/store";
 import {
@@ -813,8 +813,34 @@ function ExercisePage() {
               ) : (
                 <>
                   <div className="grid grid-cols-2 gap-3">
-                    {filteredExercises.slice(0, visibleCount).map((ex) => (
-                      <ExerciseCard key={ex.id} ex={ex} onClick={() => setSelected(ex)} />
+                    {filteredExercises.slice(0, visibleCount).map((ex, index) => (
+                      <Fragment key={ex.id}>
+                        <ExerciseCard ex={ex} onClick={() => setSelected(ex)} />
+                        {index === 3 && (
+                          <div className="col-span-2 w-full rounded-2xl overflow-hidden relative bg-zinc-950 border border-zinc-900 my-1 animate-ex-fade">
+                            <video
+                              ref={(el) => {
+                                if (el) {
+                                  el.defaultMuted = true;
+                                  el.muted = true;
+                                  el.playsInline = true;
+                                  el.setAttribute("playsinline", "true");
+                                  el.setAttribute("webkit-playsinline", "true");
+                                  el.play().catch(() => {});
+                                }
+                              }}
+                              autoPlay
+                              loop
+                              muted
+                              playsInline
+                              preload="auto"
+                              className="w-full h-auto block"
+                            >
+                              <source src="/banner_2.mp4?v=202605291230" type="video/mp4" />
+                            </video>
+                          </div>
+                        )}
+                      </Fragment>
                     ))}
                   </div>
                   {visibleCount < filteredExercises.length && (
