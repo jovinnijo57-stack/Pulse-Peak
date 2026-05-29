@@ -109,17 +109,53 @@ function calcCalories(met: number, weightKg: number, durationSecs: number): numb
 
 // ─── Weather WMO Interpretation Helper ─────────────────────────────────────────
 function getWmoWeather(code: number): { desc: string; icon: string } {
-  if (code === 0) return { desc: "Clear", icon: "☀️" };
-  if (code === 1) return { desc: "Partly Cloudy", icon: "🌤️" };
-  if (code === 2) return { desc: "Partly Cloudy", icon: "⛅" };
-  if (code === 3) return { desc: "Cloudy", icon: "☁️" };
-  if (code >= 45 && code <= 48) return { desc: "Foggy", icon: "🌫️" };
-  if (code >= 51 && code <= 55) return { desc: "Drizzle", icon: "🌧️" };
-  if (code >= 61 && code <= 65) return { desc: "Rainy", icon: "🌧️" };
-  if (code >= 71 && code <= 77) return { desc: "Snowy", icon: "❄️" };
-  if (code >= 80 && code <= 82) return { desc: "Showers", icon: "🌦️" };
-  if (code >= 95 && code <= 99) return { desc: "Thunderstorm", icon: "⛈️" };
-  return { desc: "Clear", icon: "☀️" };
+  switch (code) {
+    case 0:
+      return { desc: "Clear", icon: "☀️" };
+    case 1:
+      return { desc: "Mainly Clear", icon: "🌤️" };
+    case 2:
+      return { desc: "Partly Cloudy", icon: "⛅" };
+    case 3:
+      return { desc: "Cloudy", icon: "☁️" };
+    case 45:
+    case 48:
+      return { desc: "Foggy", icon: "🌫️" };
+    case 51:
+    case 53:
+    case 55:
+      return { desc: "Drizzle", icon: "🌧️" };
+    case 56:
+    case 57:
+      return { desc: "Freezing Drizzle", icon: "🌧️" };
+    case 61:
+    case 63:
+    case 65:
+      return { desc: "Rainy", icon: "🌧️" };
+    case 66:
+    case 67:
+      return { desc: "Freezing Rain", icon: "🌧️" };
+    case 71:
+    case 73:
+    case 75:
+      return { desc: "Snowy", icon: "❄️" };
+    case 77:
+      return { desc: "Snow Grains", icon: "❄️" };
+    case 80:
+    case 81:
+    case 82:
+      return { desc: "Showers", icon: "🌦️" };
+    case 85:
+    case 86:
+      return { desc: "Snow Showers", icon: "❄️" };
+    case 95:
+      return { desc: "Thunderstorm", icon: "⛈️" };
+    case 96:
+    case 99:
+      return { desc: "Thunderstorm", icon: "⛈️" };
+    default:
+      return { desc: "Clear", icon: "☀️" };
+  }
 }
 
 // ─── AQI Label helper ─────────────────────────────────────────────────────────
@@ -346,7 +382,7 @@ function TrainPage() {
   const [summary, setSummary] = useState<SessionSummary | null>(null);
 
   // Weather
-  const [weather, setWeather] = useState<{ temp: number; desc: string; wind: number } | null>(null);
+  const [weather, setWeather] = useState<{ temp: number; desc: string; icon: string; wind: number } | null>(null);
   const [cityName, setCityName] = useState("Current Location");
   const [weatherDetails, setWeatherDetails] = useState<any>(null);
   const [showWeatherModal, setShowWeatherModal] = useState(false);
@@ -390,6 +426,7 @@ function TrainPage() {
         setWeather({
           temp: Math.round(current.temperature_2m),
           desc: wInfo.desc,
+          icon: wInfo.icon,
           wind: Math.round(current.wind_speed_10m),
         });
 
@@ -405,7 +442,7 @@ function TrainPage() {
           const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
           const dayName = idx === 0 ? "Today" : idx === 1 ? "Tomorrow" : days[date.getUTCDay()];
           const code = wData.daily.weather_code[idx];
-          const info = getWmoWeather(code);
+          const info = idx === 0 ? wInfo : getWmoWeather(code);
           return {
             day: dayName,
             desc: info.desc,
@@ -733,16 +770,16 @@ function TrainPage() {
             {weather && (
               <button
                 onClick={() => setShowWeatherModal(true)}
-                className="absolute top-4 right-4 bg-white/10 backdrop-blur-md hover:bg-white/15 active:scale-95 transition rounded-2xl px-3 py-2 border border-white/10 text-left z-20 cursor-pointer"
+                className="absolute top-4 right-4 bg-white/10 backdrop-blur-md hover:bg-white/15 active:scale-95 transition rounded-2xl px-3.5 py-2.5 border border-white/10 text-left z-20 cursor-pointer"
               >
-                <div className="flex items-center gap-1.5">
-                  <Thermometer className="h-3.5 w-3.5 text-blue-300" />
-                  <span className="text-xs font-bold text-white">{weather.temp}°C</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm shrink-0">{weather.icon}</span>
+                  <span className="text-xs font-bold text-white leading-none">{weather.temp}°C</span>
                 </div>
-                <p className="text-[9px] text-slate-300 mt-0.5">{weather.desc}</p>
-                <div className="flex items-center gap-1 mt-0.5">
-                  <Wind className="h-2.5 w-2.5 text-slate-400" />
-                  <span className="text-[8px] text-slate-400">{weather.wind} km/h</span>
+                <p className="text-[9px] text-slate-300 mt-1">{weather.desc}</p>
+                <div className="flex items-center gap-1 mt-1 text-slate-400">
+                  <Wind className="h-2.5 w-2.5 shrink-0" />
+                  <span className="text-[8px] leading-none">{weather.wind} km/h</span>
                 </div>
               </button>
             )}
