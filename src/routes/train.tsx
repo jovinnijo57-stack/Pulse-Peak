@@ -528,7 +528,10 @@ function TrainPage() {
           </video>
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
           {showButton && (
-            <div className="relative z-10 flex flex-col items-center pb-8 px-6 w-full animate-ex-fade">
+            <div className="relative z-10 flex flex-col items-center gap-2.5 pb-8 px-6 w-full animate-ex-fade">
+              <p className="text-white/70 text-[10px] font-semibold tracking-[0.15em] uppercase">
+                Train smart. Live strong
+              </p>
               <button
                 onClick={() => setShowIntro(false)}
                 className="px-8 py-3.5 rounded-full bg-[#3b82f6] text-white font-display font-black text-xs uppercase tracking-widest shadow-[0_0_25px_rgba(59,130,246,0.35)] active:scale-95 transition"
