@@ -320,8 +320,8 @@ function TrainPage() {
   // ── Weather fetch (Open-Meteo, no key required) ───────────────────────────
   useEffect(() => {
     if (screen !== "hero") return;
-    navigator.geolocation?.getCurrentPosition((pos) => {
-      const { latitude: lat, longitude: lon } = pos.coords;
+
+    const fetchWeather = (lat: number, lon: number) => {
       fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m,weather_code`)
         .then((r) => r.json())
         .then((d) => {
@@ -334,7 +334,36 @@ function TrainPage() {
           });
         })
         .catch(() => {});
-    });
+    };
+
+    const fallbackIpGeolocation = () => {
+      fetch("https://ipapi.co/json/")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.latitude && data.longitude) {
+            fetchWeather(data.latitude, data.longitude);
+          } else {
+            fetchWeather(19.0760, 72.8777); // Extreme fallback: Mumbai
+          }
+        })
+        .catch(() => {
+          fetchWeather(19.0760, 72.8777); // Extreme fallback
+        });
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          fetchWeather(pos.coords.latitude, pos.coords.longitude);
+        },
+        () => {
+          fallbackIpGeolocation();
+        },
+        { timeout: 4000 }
+      );
+    } else {
+      fallbackIpGeolocation();
+    }
   }, [screen]);
 
   // ── GPS watch ─────────────────────────────────────────────────────────────

@@ -816,7 +816,7 @@ function ExercisePage() {
                     {filteredExercises.slice(0, visibleCount).map((ex, index) => (
                       <Fragment key={ex.id}>
                         <ExerciseCard ex={ex} onClick={() => setSelected(ex)} />
-                        {index === 3 && (
+                        {index === 19 && (
                           <div className="col-span-2 w-full rounded-2xl overflow-hidden relative bg-zinc-950 border border-zinc-900 my-1 animate-ex-fade">
                             <video
                               ref={(el) => {
