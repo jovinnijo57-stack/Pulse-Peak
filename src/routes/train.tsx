@@ -104,8 +104,11 @@ function fmtPace(distKm: number, secs: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-// ─── Calorie calculation using MET formula ────────────────────────────────────
-function calcCalories(met: number, weightKg: number, durationSecs: number): number {
+// ─── Calorie calculation using MET formula & custom distance-based estimation ────────────────────────────────────
+function calcCalories(met: number, weightKg: number, durationSecs: number, distanceKm: number): number {
+  if (distanceKm > 0.02) {
+    return Math.round(weightKg * distanceKm * 1.036);
+  }
   const hours = durationSecs / 3600;
   return Math.round(met * weightKg * hours);
 }
@@ -442,7 +445,7 @@ function TrainPage() {
   const distKm = distanceM / 1000;
   const actInfo = ACTIVITIES.find((a) => a.type === activity)!;
   const weightKg = profile.weightKg || 70;
-  const calories = calcCalories(actInfo.met, weightKg, elapsed);
+  const calories = calcCalories(actInfo.met, weightKg, elapsed, distKm);
   const speed = elapsed > 0 ? (distKm / (elapsed / 3600)) : 0;
 
   // Summary
@@ -1103,18 +1106,21 @@ function TrainPage() {
             </div>
           </div>
 
-          {/* Stats Row — Distance / Duration / Calories */}
+          {/* Stats Row — Distance / Duration / Steps / Calories */}
           <div className="px-5 shrink-0">
-            <div className="grid grid-cols-3 gap-2 bg-white/5 border border-white/10 rounded-2xl p-3">
+            <div className="grid grid-cols-4 gap-1.5 bg-white/5 border border-white/10 rounded-2xl p-3">
               {[
                 { label: "Distance", value: distKm.toFixed(2), unit: "km", icon: <MapPin className="h-3 w-3" /> },
                 { label: "Duration", value: fmtTime(elapsed), unit: "time", icon: <Timer className="h-3 w-3" /> },
+                activity === "cycling" || activity === "swimming"
+                  ? { label: "Points", value: String(route.length), unit: "pts", icon: <Navigation className="h-3 w-3" /> }
+                  : { label: "Steps", value: String(Math.round(distanceM / (activity === "running" ? 1.04 : 0.76))), unit: "steps", icon: <span className="text-[10px] leading-none">👣</span> },
                 { label: "Calories", value: String(calories), unit: "kcal", icon: <Flame className="h-3 w-3" /> },
               ].map((s) => (
                 <div key={s.label} className="text-center">
-                  <div className="flex justify-center mb-0.5" style={{ color: actColor }}>{s.icon}</div>
-                  <p className="font-black text-white text-lg leading-none">{s.value}</p>
-                  <p className="text-[8px] text-slate-500 uppercase tracking-wider mt-0.5">{s.unit}</p>
+                  <div className="flex justify-center mb-0.5 h-4 items-center" style={{ color: actColor }}>{s.icon}</div>
+                  <p className="font-black text-white text-sm leading-none mt-0.5 truncate">{s.value}</p>
+                  <p className="text-[7px] text-slate-500 uppercase tracking-wider mt-1">{s.unit}</p>
                 </div>
               ))}
             </div>
@@ -1270,7 +1276,9 @@ function TrainPage() {
               { label: "Avg Pace", value: fmtPace(summary.distance, summary.duration), unit: "min/km", icon: "⚡" },
               { label: "Avg Speed", value: summary.avgSpeed.toFixed(1), unit: "km/h", icon: "🏎️" },
               { label: "Laps", value: String(summary.laps.length), unit: "markers", icon: "🚩" },
-              { label: "GPS Points", value: String(summary.route.length), unit: "waypoints", icon: "📍" },
+              summary.activity === "cycling" || summary.activity === "swimming"
+                ? { label: "GPS Points", value: String(summary.route.length), unit: "waypoints", icon: "📍" }
+                : { label: "Estimated Steps", value: String(Math.round(summary.distance * 1000 / (summary.activity === "running" ? 1.04 : 0.76))), unit: "steps", icon: "👣" },
             ].map((s) => (
               <div key={s.label} className="bg-white/5 border border-white/10 rounded-2xl p-3">
                 <div className="flex items-center gap-1.5 mb-1.5">
